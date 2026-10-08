@@ -1,0 +1,385 @@
+import React from "react";
+import { useEffect, useState } from 'react';
+import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Modal } from '../components/ui/Modal';
+import { SearchBar } from '../components/ui/SearchBar';
+import { Badge } from '../components/ui/Badge';
+import { useToast } from '../contexts/ToastContext';
+import { Edit, Trash2, Smartphone } from 'lucide-react';
+import { format } from 'date-fns';
+import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
+
+const COMPANIES = [
+  { value: 'Samsung', label: 'Samsung' },
+  { value: 'Apple', label: 'Apple (iPhone)' },
+  { value: 'Xiaomi', label: 'Xiaomi / Redmi' },
+  { value: 'Infinix', label: 'Infinix' },
+  { value: 'Tecno', label: 'Tecno' },
+  { value: 'Vivo', label: 'Vivo' },
+  { value: 'Oppo', label: 'Oppo' },
+  { value: 'Realme', label: 'Realme' },
+  { value: 'Itel', label: 'Itel' },
+  { value: 'Nokia', label: 'Nokia' },
+  { value: 'OnePlus', label: 'OnePlus' },
+  { value: 'Google Pixel', label: 'Google Pixel' },
+  { value: 'Other', label: 'Other (Type Brand)' },
+];
+
+const FILTER_COMPANIES = [
+  { value: '', label: 'All Companies' },
+  ...COMPANIES
+];
+
+export default function PurchaseMobilePage() {
+  const [mobiles, setMobiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterCompany, setFilterCompany] = useState('');
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
+  const [formData, setFormData] = useState({
+    modelName: '',
+    company: 'Samsung',
+    customCompany: '',
+    ramRom: '',
+    basePrice: '',
+    quantity: '1',
+    condition: 'New',
+    purchaseDate: format(new Date(), 'yyyy-MM-dd'),
+    supplier: '',
+    notes: ''
+  });
+
+  const { success, error } = useToast();
+
+  useEffect(() => {
+    const q = query(collection(db, 'mobiles'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setMobiles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const filteredMobiles = mobiles.filter(m => {
+    const comp = m.company || m.brand || '';
+    const matchesSearch = (m.modelName && m.modelName.toLowerCase().includes(search.toLowerCase())) || 
+                          comp.toLowerCase().includes(search.toLowerCase());
+    const matchesCompany = filterCompany ? comp.toLowerCase() === filterCompany.toLowerCase() : true;
+    return matchesSearch && matchesCompany;
+  });
+
+  const handleOpenModal = (mobile?: any) => {
+    if (mobile) {
+      setEditingId(mobile.id);
+      const rawComp = mobile.company || mobile.brand || '';
+      const isPreset = COMPANIES.some(c => c.value.toLowerCase() === rawComp.toLowerCase() && c.value !== 'Other');
+      setFormData({
+        modelName: mobile.modelName || '',
+        company: isPreset ? rawComp : (rawComp ? 'Other' : 'Samsung'),
+        customCompany: isPreset ? '' : rawComp,
+        ramRom: mobile.ramRom || '',
+        basePrice: (mobile.basePrice ?? '').toString(),
+        quantity: (mobile.quantity ?? '1').toString(),
+        condition: mobile.condition || 'New',
+        purchaseDate: formatDateSafe(mobile.purchaseDate || new Date(), 'yyyy-MM-dd'),
+        supplier: mobile.supplier || '',
+        notes: mobile.notes || ''
+      });
+    } else {
+      setEditingId(null);
+      setFormData({
+        modelName: '',
+        company: 'Samsung',
+        customCompany: '',
+        ramRom: '',
+        basePrice: '',
+        quantity: '1',
+        condition: 'New',
+        purchaseDate: format(new Date(), 'yyyy-MM-dd'),
+        supplier: '',
+        notes: ''
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const resolvedCompany = formData.company === 'Other'
+        ? (formData.customCompany.trim() || 'Other')
+        : (formData.company.trim() || 'Samsung');
+
+      if (!formData.modelName.trim()) {
+        return error('Please enter model name');
+      }
+
+      const data = {
+        modelName: formData.modelName.trim(),
+        company: resolvedCompany,
+        ramRom: formData.ramRom.trim(),
+        basePrice: Number(formData.basePrice) || 0,
+        quantity: Number(formData.quantity) || 1,
+        condition: formData.condition,
+        purchaseDate: new Date(formData.purchaseDate),
+        supplier: formData.supplier.trim(),
+        notes: formData.notes.trim(),
+      };
+
+      if (editingId) {
+        await updateDoc(doc(db, 'mobiles', editingId), data);
+        success('Mobile updated successfully');
+      } else {
+        await addDoc(collection(db, 'mobiles'), {
+          ...data,
+          createdAt: serverTimestamp()
+        });
+        success('Mobile added successfully');
+      }
+      setIsModalOpen(false);
+    } catch (err: any) {
+      error(err.message || 'Error saving mobile');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this mobile?')) {
+      try {
+        await deleteDoc(doc(db, 'mobiles', id));
+        success('Mobile deleted');
+      } catch (err: any) {
+        error(err.message || 'Error deleting mobile');
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Purchase Mobile</h1>
+          <p className="text-sm text-slate-500 mt-1">Manage your purchased stock</p>
+        </div>
+        <Button onClick={() => handleOpenModal()} className="shrink-0">
+          + Add Mobile
+        </Button>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-card p-4">
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search models, company, brand..." />
+          <Select 
+            className="sm:max-w-[200px]"
+            value={filterCompany} 
+            onChange={(e) => setFilterCompany(e.target.value)}
+            options={FILTER_COMPANIES}
+          />
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="px-4 py-3 font-semibold rounded-tl-xl">Company / Brand</th>
+                <th className="px-4 py-3 font-semibold">Model</th>
+                <th className="px-4 py-3 font-semibold">RAM/ROM</th>
+                <th className="px-4 py-3 font-semibold">Base Price</th>
+                <th className="px-4 py-3 font-semibold">Qty</th>
+                <th className="px-4 py-3 font-semibold">Condition</th>
+                <th className="px-4 py-3 font-semibold">Date</th>
+                <th className="px-4 py-3 font-semibold rounded-tr-xl text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-8"></div></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
+                    <td className="px-4 py-4"></td>
+                  </tr>
+                ))
+              ) : filteredMobiles.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                    <Smartphone className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+                    <p>No mobiles found. Add your first mobile above.</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredMobiles.map((m) => (
+                  <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-slate-900">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-700 border border-amber-500/30">
+                        {m.company || m.brand || 'Samsung'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-900">{m.modelName}</td>
+                    <td className="px-4 py-3 text-slate-500">{m.ramRom || '-'}</td>
+                    <td className="px-4 py-3 font-medium">Rs. {m.basePrice?.toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={m.quantity > 3 ? 'success' : m.quantity > 0 ? 'warning' : 'danger'}>
+                        {m.quantity}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={m.condition === 'New' ? 'info' : 'default'}>{m.condition}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">
+                      {formatDateSafe(m.purchaseDate, 'dd MMM yyyy')}
+                    </td>
+                    <td className="px-4 py-3 text-right space-x-2">
+                      <button onClick={() => handleOpenModal(m)} className="p-1.5 text-primary-500 hover:bg-primary-50 rounded-lg transition-colors">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(m.id)} className="p-1.5 text-accent-rose hover:bg-accent-rose/10 rounded-lg transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={editingId ? 'Edit Mobile' : 'Add Mobile'}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              label="Company *"
+              required
+              value={formData.company}
+              onChange={e => setFormData({...formData, company: e.target.value})}
+              options={COMPANIES}
+            />
+            {formData.company === 'Other' && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-500">Custom Brand Name *</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="e.g. Motorola"
+                  className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-4 py-2.5 text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                  value={formData.customCompany}
+                  onChange={e => setFormData({...formData, customCompany: e.target.value})}
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">Model Name *</label>
+              <input
+                required
+                type="text"
+                className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-4 py-2.5 text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                value={formData.modelName}
+                onChange={e => setFormData({...formData, modelName: e.target.value})}
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">RAM/ROM</label>
+              <input
+                type="text"
+                placeholder="e.g. 8GB/128GB"
+                className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-4 py-2.5 text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                value={formData.ramRom}
+                onChange={e => setFormData({...formData, ramRom: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">Base Price (Rs.) *</label>
+              <input
+                required
+                type="number"
+                min="0"
+                className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-4 py-2.5 text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                value={formData.basePrice}
+                onChange={e => setFormData({...formData, basePrice: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">Quantity *</label>
+              <input
+                required
+                type="number"
+                min="1"
+                className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-4 py-2.5 text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                value={formData.quantity}
+                onChange={e => setFormData({...formData, quantity: e.target.value})}
+              />
+            </div>
+            <Select
+              label="Condition *"
+              required
+              value={formData.condition}
+              onChange={e => setFormData({...formData, condition: e.target.value})}
+              options={[
+                { value: 'New', label: 'New' },
+                { value: 'Used', label: 'Used' },
+                { value: 'Refurbished', label: 'Refurbished' },
+              ]}
+            />
+            
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">Purchase Date *</label>
+              <input
+                required
+                type="date"
+                className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-4 py-2.5 text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                value={formData.purchaseDate}
+                onChange={e => setFormData({...formData, purchaseDate: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">Supplier</label>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-4 py-2.5 text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                value={formData.supplier}
+                onChange={e => setFormData({...formData, supplier: e.target.value})}
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-500">Notes</label>
+            <textarea
+              rows={2}
+              className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-4 py-2.5 text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              value={formData.notes}
+              onChange={e => setFormData({...formData, notes: e.target.value})}
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              {editingId ? 'Save Changes' : 'Add Mobile'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}
