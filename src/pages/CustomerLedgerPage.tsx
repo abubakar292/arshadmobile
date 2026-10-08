@@ -282,7 +282,7 @@ export default function CustomerLedgerPage() {
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-transform active:scale-95"
             >
               <MessageCircle className="w-4 h-4 fill-white/20" />
-              <span>WhatsApp تقاضا میسج</span>
+              <span>WhatsApp Reminder</span>
             </a>
           ) : (
             <button
@@ -312,7 +312,7 @@ export default function CustomerLedgerPage() {
               Rs. {(customer.totalBalance || 0).toLocaleString()}
             </p>
             <p className="text-xs sm:text-sm font-semibold text-amber-400 mt-1">
-              {customer.type === 'receivable' ? '⚡ Will give you (آپ نے وصول کرنا ہے)' : '🤝 You owe them (آپ نے ادا کرنا ہے)'}
+              {customer.type === 'receivable' ? '⚡ Customer Owes You (Receivable)' : '🤝 You Owe Customer (Payable)'}
             </p>
           </div>
         </div>
@@ -325,14 +325,14 @@ export default function CustomerLedgerPage() {
           className="py-3 px-2 rounded-xl bg-red-50 border border-red-200 text-red-600 font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-red-100 transition-colors shadow-2xs active:scale-95"
         >
           <ArrowUpRight className="w-5 h-5 shrink-0 stroke-[2.5]" />
-          <span>Udhar Diya (ادھار)</span>
+          <span>Give Credit</span>
         </button>
         <button
           onClick={() => setTxModalType('wasooli')}
           className="py-3 px-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-emerald-100 transition-colors shadow-2xs active:scale-95"
         >
           <ArrowDownLeft className="w-5 h-5 shrink-0 stroke-[2.5]" />
-          <span>Wasooli Li (وصولی)</span>
+          <span>Receive Payment</span>
         </button>
       </div>
 
@@ -383,7 +383,7 @@ export default function CustomerLedgerPage() {
                         <span className={`text-sm sm:text-base font-extrabold ${
                           tx.transactionType === 'udhar' ? 'text-red-700' : 'text-emerald-800'
                         }`}>
-                          {tx.transactionType === 'udhar' ? 'ادھار دیا (Udhar)' : 'وصولی لی (Wasooli)'}
+                          {tx.transactionType === 'udhar' ? 'Credit Given' : 'Payment Received'}
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-0.5">
@@ -408,7 +408,7 @@ export default function CustomerLedgerPage() {
                 {/* ── CARD MIDDLE: Description Note (Full Width Bubble) ── */}
                 {tx.description && (
                   <div className="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs text-gray-700 font-medium break-words">
-                    <span className="text-gray-400 mr-1.5 font-normal">تفصیل / Note:</span>
+                    <span className="text-gray-400 mr-1.5 font-normal">Note:</span>
                     {tx.description}
                   </div>
                 )}
@@ -433,7 +433,7 @@ export default function CustomerLedgerPage() {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-transform active:scale-95"
                     >
                       <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
-                      <span>WhatsApp رسید</span>
+                      <span>WhatsApp Receipt</span>
                     </a>
                   ) : (
                     <button
@@ -446,7 +446,7 @@ export default function CustomerLedgerPage() {
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-50 hover:bg-emerald-50 text-gray-600 hover:text-emerald-700 text-xs font-semibold border border-dashed border-gray-300 transition-colors"
                     >
                       <MessageCircle className="w-3.5 h-3.5 text-gray-400" />
-                      <span>+ فون درج کریں (WhatsApp)</span>
+                      <span>+ Add Phone (WhatsApp)</span>
                     </button>
                   )}
 
@@ -495,7 +495,7 @@ export default function CustomerLedgerPage() {
             >
               <div className="flex items-center justify-between p-4 border-b border-gray-100">
                 <h3 className="text-lg font-bold text-gray-900">
-                  {txModalType === 'udhar' ? 'Record Udhar Diya' : 'Record Wasooli Li'}
+                  {txModalType === 'udhar' ? 'Record Credit Given' : 'Record Payment Received'}
                 </h3>
                 <button onClick={() => setTxModalType(null)}><X className="w-5 h-5 text-gray-500" /></button>
               </div>
@@ -533,8 +533,8 @@ export default function CustomerLedgerPage() {
                 onChange={e => setEditTxType(e.target.value as any)}
                 className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-forest"
               >
-                <option value="udhar">Udhar Diya (Debit / Customer owes you)</option>
-                <option value="wasooli">Wasooli Li (Credit / Received from customer)</option>
+                <option value="udhar">Credit Given (Debit / Customer owes you)</option>
+                <option value="wasooli">Payment Received (Credit / From customer)</option>
               </select>
             </div>
             <Input label="Amount (Rs.)" type="number" required min="1" value={editTxAmount} onChange={e => setEditTxAmount(e.target.value)} />
@@ -570,7 +570,7 @@ export default function CustomerLedgerPage() {
             <div>
               <h4 className="font-bold text-gray-900 text-base">Delete this transaction?</h4>
               <p className="text-xs text-gray-500 mt-1">
-                Are you sure you want to delete the <span className="font-semibold text-gray-800">{txToDelete.transactionType === 'udhar' ? 'Udhar Diya' : 'Wasooli Li'}</span> transaction of <span className="font-bold text-gray-900">Rs. {Number(txToDelete.amount || 0).toLocaleString()}</span>? The customer balance will automatically update.
+                Are you sure you want to delete the <span className="font-semibold text-gray-800">{txToDelete.transactionType === 'udhar' ? 'Credit Given' : 'Payment Received'}</span> transaction of <span className="font-bold text-gray-900">Rs. {Number(txToDelete.amount || 0).toLocaleString()}</span>? The customer balance will automatically update.
               </p>
             </div>
             <div className="flex gap-3 pt-2">

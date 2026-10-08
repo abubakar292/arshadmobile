@@ -290,11 +290,11 @@ export default function KhataPage() {
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    title="Send WhatsApp Reminder (1-Click تقاضا)"
+                    title="Send WhatsApp Reminder"
                     className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200 transition-colors shadow-xs"
                   >
                     <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-500/20" />
-                    <span className="hidden sm:inline">تقاضا</span>
+                    <span className="hidden sm:inline">Reminder</span>
                   </a>
                 ) : (
                   <button

@@ -11,9 +11,10 @@ interface Toast {
 }
 
 interface ToastContextType {
-  toast: (message: string, type: ToastType) => void;
+  toast: (message: string, type?: ToastType) => void;
   success: (message: string) => void;
   error: (message: string) => void;
+  addToast: (arg1: string, arg2?: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | null>(null);
@@ -32,7 +33,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const toast = useCallback((message: string, type: ToastType) => {
+  const toast = useCallback((message: string, type: ToastType = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, message, type }]);
 
@@ -44,8 +45,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const success = useCallback((msg: string) => toast(msg, 'success'), [toast]);
   const error = useCallback((msg: string) => toast(msg, 'error'), [toast]);
 
+  const addToast = useCallback((arg1: string, arg2?: string) => {
+    if (arg2) {
+      const validTypes: ToastType[] = ['success', 'error', 'warning', 'info'];
+      if (validTypes.includes(arg1 as ToastType)) {
+        toast(arg2, arg1 as ToastType);
+      } else if (validTypes.includes(arg2 as ToastType)) {
+        toast(arg1, arg2 as ToastType);
+      } else {
+        toast(arg2, 'info');
+      }
+    } else {
+      toast(arg1, 'info');
+    }
+  }, [toast]);
+
   return (
-    <ToastContext.Provider value={{ toast, success, error }}>
+    <ToastContext.Provider value={{ toast, success, error, addToast }}>
       {children}
       <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
         <AnimatePresence>
