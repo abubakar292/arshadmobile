@@ -16,7 +16,8 @@ import {
   startOfDay, endOfDay, isWithinInterval, subMonths 
 } from 'date-fns';
 import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
-import { printBillHtml } from '../utils/printBill';
+import { getBillHtml } from '../utils/printBill';
+import { BillPreviewModal } from '../components/ui/BillPreviewModal';
 import { getWhatsAppSaleBillUrl } from '../config/shopConfig';
 
 const COMPANY_OPTIONS = [
@@ -76,6 +77,9 @@ export default function MobileSalesPage() {
 
   // Return modal state
   const [saleToReturn, setSaleToReturn] = useState<any | null>(null);
+
+  // In-app bill preview state
+  const [previewSaleBill, setPreviewSaleBill] = useState<any | null>(null);
 
   const { success, error } = useToast();
 
@@ -219,7 +223,7 @@ export default function MobileSalesPage() {
   };
 
   const handleViewBill = (sale: any) => {
-    printBillHtml({
+    setPreviewSaleBill({
       id: sale.billId || sale.id,
       billNumber: sale.billNumber || sale.id.substring(0, 8).toUpperCase(),
       customerName: sale.customerName,
@@ -232,6 +236,21 @@ export default function MobileSalesPage() {
       paymentMethod: sale.paymentMethod,
       date: sale.date || sale.createdAt
     });
+  };
+
+  const saleBillHtml = previewSaleBill ? getBillHtml(previewSaleBill) : '';
+
+  const handleWhatsAppForSalePreview = () => {
+    if (!previewSaleBill) return;
+    const phone = previewSaleBill.customerPhone || '';
+    const name = previewSaleBill.customerName || 'Customer';
+    const item = previewSaleBill.itemName || 'Mobile Purchase';
+    const total = previewSaleBill.sellPrice || 0;
+    const method = previewSaleBill.paymentMethod || 'Cash';
+    const imei = previewSaleBill.imei1;
+    const billNum = previewSaleBill.billNumber || previewSaleBill.id.substring(0, 8).toUpperCase();
+    const url = getWhatsAppSaleBillUrl(phone, name, item, total, method, imei, billNum);
+    window.open(url, '_blank');
   };
 
   return (
@@ -688,6 +707,16 @@ export default function MobileSalesPage() {
           </>
         )}
       </AnimatePresence>
+
+      {/* IN-APP PREVIEW MODAL */}
+      <BillPreviewModal
+        isOpen={!!previewSaleBill}
+        onClose={() => setPreviewSaleBill(null)}
+        htmlContent={saleBillHtml}
+        title="Sale Receipt Preview"
+        billNumber={previewSaleBill?.billNumber || previewSaleBill?.id}
+        onShareWhatsApp={(previewSaleBill?.customerPhone || previewSaleBill?.phone) ? handleWhatsAppForSalePreview : undefined}
+      />
 
     </div>
   );

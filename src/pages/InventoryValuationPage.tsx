@@ -5,7 +5,7 @@ import { Package, Download, Printer, Search, Smartphone, Layers, TrendingUp, Ref
 import { Button } from '../components/ui/Button';
 import { SearchBar } from '../components/ui/SearchBar';
 import { SHOP_CONFIG } from '../config/shopConfig';
-import { printInNewWindow } from '../utils/printUtils';
+import { BillPreviewModal } from '../components/ui/BillPreviewModal';
 import html2pdf from 'html2pdf.js';
 
 interface MobileStockItem {
@@ -27,6 +27,8 @@ export default function InventoryValuationPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<string>('All');
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
 
   useEffect(() => {
     fetchStock();
@@ -211,7 +213,8 @@ export default function InventoryValuationPage() {
         </body>
       </html>
     `;
-    printInNewWindow(html, `${SHOP_CONFIG.shortName} Inventory Valuation`);
+    setPreviewHtml(html);
+    setShowPrintPreview(true);
   };
 
   return (
@@ -556,6 +559,14 @@ export default function InventoryValuationPage() {
           </>
         )}
       </div>
+
+      {/* IN-APP PREVIEW MODAL */}
+      <BillPreviewModal
+        isOpen={showPrintPreview}
+        onClose={() => setShowPrintPreview(false)}
+        htmlContent={previewHtml}
+        title="Inventory Valuation Report"
+      />
     </div>
   );
 }

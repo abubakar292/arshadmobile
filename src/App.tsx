@@ -37,9 +37,9 @@ export default function App() {
                 <Route path="/purchase-mobile" element={<PurchaseMobilePage />} />
                 <Route path="/mobiles-stock" element={<MobilesStockPage />} />
                 <Route path="/mobile-sales" element={<MobileSalesPage />} />
-                <Route path="/quick-sale" element={<QuickSalePage />} />
+                <Route path="/quick-sale" element={<Navigate to="/mobiles-stock" replace />} />
                 <Route path="/bills-history" element={<BillsHistoryPage />} />
-                <Route path="/expenses" element={<ExpensesPage />} />
+                <Route path="/expenses" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/khata" element={<KhataPage />} />
                 <Route path="/khata/:id" element={<CustomerLedgerPage />} />
                 <Route path="/inventory-valuation" element={<InventoryValuationPage />} />

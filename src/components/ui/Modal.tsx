@@ -48,14 +48,14 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
             onClick={onClose}
             className="fixed inset-0 z-50 bg-dark-900/40 backdrop-blur-sm"
           />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-none pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))]">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className={cn(
-                'w-full bg-white rounded-2xl shadow-card overflow-hidden pointer-events-auto flex flex-col max-h-[90vh]',
+                'w-full bg-white rounded-2xl shadow-card overflow-hidden pointer-events-auto flex flex-col max-h-[calc(100vh-2rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))]',
                 sizes[size]
               )}
             >

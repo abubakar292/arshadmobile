@@ -76,8 +76,8 @@ export default function MobilesStockPage() {
       customerName: '',
       customerPhone: '',
       sellPrice: mobile.basePrice.toString(),
-      imei1: '',
-      imei2: '',
+      imei1: mobile.imei1 || '',
+      imei2: mobile.imei2 || '',
       paymentMethod: 'Cash'
     });
   };
@@ -226,6 +226,8 @@ export default function MobilesStockPage() {
           company: mobile?.company || '',
           ramRom: mobile?.ramRom || '',
           basePrice: mobile?.basePrice || 0,
+          imei1: mobile?.imei1 || '',
+          imei2: mobile?.imei2 || '',
         };
       }
       return { ...item, [field]: value };
@@ -275,8 +277,8 @@ export default function MobilesStockPage() {
           modelName: item.modelName,
           company: item.company,
           ramRom: item.ramRom,
-          imei1: '',
-          imei2: '',
+          imei1: item.imei1 || '',
+          imei2: item.imei2 || '',
           basePrice: item.basePrice,
           sellPrice: item.basePrice + (totalProfit / validItems.length), // Distribute profit evenly for bill items
           profit: totalProfit / validItems.length
@@ -481,21 +483,21 @@ export default function MobilesStockPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500">IMEI 1 *</label>
+                <label className="text-xs font-medium text-slate-500">IMEI 1 (Optional)</label>
                 <div className="flex gap-2">
-                  <input required type="text" maxLength={15} className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-3 py-2 text-slate-900 outline-none focus:border-primary-500 focus:ring-2"
+                  <input type="text" maxLength={18} placeholder="Optional IMEI 1" className="w-full font-mono text-sm rounded-xl border border-primary-500/20 bg-white/5 px-3 py-2 text-slate-900 outline-none focus:border-primary-500 focus:ring-2"
                     value={singleSellModal.imei1} onChange={e => setSingleSellModal({...singleSellModal, imei1: e.target.value})} />
-                  <button type="button" onClick={() => { setActiveScanField({ field: 'imei1' }); setScannerOpen(true); }} className="p-2 border border-primary-200 rounded-xl hover:bg-primary-50 text-primary-600">
+                  <button type="button" title="Scan IMEI 1" onClick={() => { setActiveScanField({ field: 'imei1' }); setScannerOpen(true); }} className="p-2 border border-primary-200 rounded-xl hover:bg-primary-50 text-primary-600">
                     <QrCode className="w-5 h-5" />
                   </button>
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500">IMEI 2</label>
+                <label className="text-xs font-medium text-slate-500">IMEI 2 (Optional)</label>
                 <div className="flex gap-2">
-                  <input type="text" maxLength={15} className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-3 py-2 text-slate-900 outline-none focus:border-primary-500 focus:ring-2"
+                  <input type="text" maxLength={18} placeholder="Optional IMEI 2" className="w-full font-mono text-sm rounded-xl border border-primary-500/20 bg-white/5 px-3 py-2 text-slate-900 outline-none focus:border-primary-500 focus:ring-2"
                     value={singleSellModal.imei2} onChange={e => setSingleSellModal({...singleSellModal, imei2: e.target.value})} />
-                  <button type="button" onClick={() => { setActiveScanField({ field: 'imei2' }); setScannerOpen(true); }} className="p-2 border border-primary-200 rounded-xl hover:bg-primary-50 text-primary-600">
+                  <button type="button" title="Scan IMEI 2" onClick={() => { setActiveScanField({ field: 'imei2' }); setScannerOpen(true); }} className="p-2 border border-primary-200 rounded-xl hover:bg-primary-50 text-primary-600">
                     <QrCode className="w-5 h-5" />
                   </button>
                 </div>

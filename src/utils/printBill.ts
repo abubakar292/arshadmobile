@@ -11,7 +11,7 @@ export function generateBillNumber(sequence?: number): string {
   return `AMZ-${year}-${randomPart}`;
 }
 
-export function printBillHtml(billData: any) {
+export function getBillHtml(billData: any): string {
   const isMultiple = billData.items && billData.items.length > 0;
   
   const itemsHtml = isMultiple 
@@ -57,26 +57,28 @@ export function printBillHtml(billData: any) {
 
   const totalHtml = `Rs. ${calculatedTotal.toLocaleString()}`;
 
-  const html = `
+  return `
     <!DOCTYPE html>
     <html>
     <head>
       <title>Bill #${billData.billNumber || billData.id}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <style>
-        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; margin: 0; padding: 20px; color: #0f0a1e; }
-        .bill-container { max-width: 800px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-        .header { background: #12141D; color: white; padding: 28px; text-align: center; border-bottom: 3px solid #F59E0B; }
-        .header-inner { display: flex; align-items: center; justify-content: center; gap: 16px; }
-        .header-logo { width: 56px; height: 56px; border-radius: 50%; background: white; padding: 2px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        .title-band { background: #F59E0B; color: #12141D; text-align: center; padding: 10px; font-weight: 800; letter-spacing: 2px; font-size: 13px; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; border-bottom: 2px solid #e2e8f0; }
-        .info-col p { margin: 5px 0; }
-        .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .items-table th { background: #F1F5F9; padding: 12px 8px; text-align: left; border-bottom: 2px solid #CBD5E1; color: #0F172A; font-weight: 700; }
-        .total-row { display: flex; justify-content: space-between; padding: 20px; font-size: 20px; font-weight: bold; background: #FFFBEB; border-bottom: 1px solid #FDE68A; color: #B45309; }
-        .footer { text-align: center; padding: 20px; color: #64748b; font-size: 13px; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; margin: 0; padding: 12px; color: #0f0a1e; background: #fff; }
+        .bill-container { max-width: 800px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #fff; }
+        .header { background: #12141D; color: white; padding: 20px; text-align: center; border-bottom: 3px solid #F59E0B; }
+        .header-inner { display: flex; align-items: center; justify-content: center; gap: 14px; }
+        .header-logo { width: 48px; height: 48px; border-radius: 50%; background: white; padding: 2px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .title-band { background: #F59E0B; color: #12141D; text-align: center; padding: 8px; font-weight: 800; letter-spacing: 2px; font-size: 12px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; border-bottom: 2px solid #e2e8f0; font-size: 13px; }
+        .info-col p { margin: 4px 0; }
+        .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .items-table th { background: #F1F5F9; padding: 10px 8px; text-align: left; border-bottom: 2px solid #CBD5E1; color: #0F172A; font-weight: 700; }
+        .total-row { display: flex; justify-content: space-between; padding: 16px; font-size: 18px; font-weight: bold; background: #FFFBEB; border-bottom: 1px solid #FDE68A; color: #B45309; }
+        .footer { text-align: center; padding: 16px; color: #64748b; font-size: 12px; }
         @media print {
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
           .bill-container { border: none; }
         }
       </style>
@@ -87,12 +89,12 @@ export function printBillHtml(billData: any) {
           <div class="header-inner">
             <img src="/logo.svg" alt="AMZ" class="header-logo" />
             <div>
-              <h1 style="margin:0; font-size: 26px; font-weight: 800; letter-spacing: 1px;">ARSHAD MOBILE ZONE</h1>
-              <p style="margin:4px 0 0 0; color: #F59E0B; font-weight: 700; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">BARA BAZAR KHYBER • AMZ</p>
+              <h1 style="margin:0; font-size: 22px; font-weight: 800; letter-spacing: 1px;">ARSHAD MOBILE ZONE</h1>
+              <p style="margin:4px 0 0 0; color: #F59E0B; font-weight: 700; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;">BARA BAZAR KHYBER • AMZ</p>
             </div>
           </div>
         </div>
-        <div class="title-band">SALE RECEIPT #${billData.billNumber || billData.id.substring(0,8).toUpperCase()}</div>
+        <div class="title-band">SALE RECEIPT #${billData.billNumber || (billData.id ? billData.id.substring(0,8).toUpperCase() : '')}</div>
         
         <div class="info-grid">
           <div class="info-col">
@@ -103,15 +105,15 @@ export function printBillHtml(billData: any) {
           <div class="info-col" style="text-align: right;">
             <p><strong>Date:</strong> ${formatDateSafe(billData.date || new Date(), 'dd/MM/yyyy')}</p>
             <p><strong>Time:</strong> ${formatDateSafe(billData.date || new Date(), 'hh:mm a')}</p>
-            <p><strong>Bill #:</strong> ${billData.billNumber || billData.id.substring(0,8).toUpperCase()}</p>
+            <p><strong>Bill #:</strong> ${billData.billNumber || (billData.id ? billData.id.substring(0,8).toUpperCase() : '')}</p>
           </div>
         </div>
-        <div style="padding: 20px;">
-          <h3 style="margin-top: 0; color: #12141D;">ITEMS PURCHASED</h3>
+        <div style="padding: 16px;">
+          <h3 style="margin-top: 0; color: #12141D; font-size: 14px;">ITEMS PURCHASED</h3>
           <table class="items-table">
             <thead>
               <tr>
-                <th style="text-align: center; width: 50px;">#</th>
+                <th style="text-align: center; width: 40px;">#</th>
                 <th>Item</th>
                 <th>IMEI</th>
                 <th style="text-align: right;">Price</th>
@@ -134,9 +136,9 @@ export function printBillHtml(billData: any) {
     </body>
     </html>
   `;
+}
 
-  
-  
-  
+export function printBillHtml(billData: any) {
+  const html = getBillHtml(billData);
   printInNewWindow(html, `Bill_${billData.billNumber || billData.id}`);
 }

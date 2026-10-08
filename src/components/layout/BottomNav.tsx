@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Smartphone, Zap, BookOpen, Menu, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Smartphone, TrendingUp, BookOpen, Menu, ShoppingCart } from 'lucide-react';
 
 interface BottomNavProps {
   onOpenMenu: () => void;
@@ -12,8 +12,9 @@ export function BottomNav({ onOpenMenu, onOpenInstallGuide }: BottomNavProps) {
 
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-    { path: '/mobiles-stock', icon: Smartphone, label: 'Stock' },
-    { path: '/quick-sale', icon: Zap, label: 'Sale', highlight: true },
+    { path: '/purchase-mobile', icon: ShoppingCart, label: 'Purchase' },
+    { path: '/mobiles-stock', icon: Smartphone, label: 'Stock', highlight: true },
+    { path: '/mobile-sales', icon: TrendingUp, label: 'Sales' },
     { path: '/khata', icon: BookOpen, label: 'Khata' },
   ];
 
@@ -35,7 +36,7 @@ export function BottomNav({ onOpenMenu, onOpenInstallGuide }: BottomNavProps) {
                     ? 'bg-gradient-to-tr from-amber-500 to-amber-400 text-obsidian-dark ring-4 ring-amber-100'
                     : 'bg-obsidian-dark text-gold ring-4 ring-white'
                 }`}>
-                  <Zap className="w-6 h-6 fill-current" />
+                  <Smartphone className="w-6 h-6 stroke-[2.2]" />
                 </div>
                 <span className={`text-[10px] mt-1 font-extrabold ${isActive ? 'text-amber-600' : 'text-gray-600'}`}>
                   {item.label}
@@ -48,7 +49,7 @@ export function BottomNav({ onOpenMenu, onOpenInstallGuide }: BottomNavProps) {
             <NavLink
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-150 active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-150 active:scale-95 ${
                 isActive 
                   ? 'text-amber-600 font-bold' 
                   : 'text-gray-500 hover:text-gray-900 font-medium'
@@ -65,7 +66,7 @@ export function BottomNav({ onOpenMenu, onOpenInstallGuide }: BottomNavProps) {
         {/* More / Menu Drawer Toggle */}
         <button
           onClick={onOpenMenu}
-          className="flex flex-col items-center justify-center py-1 px-3 rounded-xl text-gray-500 hover:text-gray-900 transition-all duration-150 active:scale-95"
+          className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-gray-500 hover:text-gray-900 transition-all duration-150 active:scale-95"
           aria-label="More navigation items"
         >
           <Menu className="w-5 h-5 stroke-[1.8]" />

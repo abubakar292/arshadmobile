@@ -4,10 +4,11 @@ import { db } from '../lib/firebase';
 import { SearchBar } from '../components/ui/SearchBar';
 import { Badge } from '../components/ui/Badge';
 import { Select } from '../components/ui/Select';
-import { FileText, MessageCircle } from 'lucide-react';
+import { BillPreviewModal } from '../components/ui/BillPreviewModal';
+import { FileText, MessageCircle, Eye } from 'lucide-react';
 import { format, isToday, isThisWeek, isThisMonth, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
-import { printBillHtml } from '../utils/printBill';
+import { getBillHtml } from '../utils/printBill';
 import { getWhatsAppSaleBillUrl } from '../config/shopConfig';
 
 export default function BillsHistoryPage() {
@@ -19,6 +20,9 @@ export default function BillsHistoryPage() {
   
   const [customStart, setCustomStart] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [customEnd, setCustomEnd] = useState(format(new Date(), 'yyyy-MM-dd'));
+
+  // In-app bill preview state
+  const [previewBill, setPreviewBill] = useState<any | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'bills'), orderBy('createdAt', 'desc'));
@@ -74,7 +78,22 @@ export default function BillsHistoryPage() {
   });
 
   const handlePrint = (bill: any) => {
-    printBillHtml(bill);
+    setPreviewBill(bill);
+  };
+
+  const billHtml = previewBill ? getBillHtml(previewBill) : '';
+
+  const handleWhatsAppForPreview = () => {
+    if (!previewBill) return;
+    const phone = previewBill.customerPhone || '';
+    const name = previewBill.customerName || 'Customer';
+    const item = previewBill.items?.[0]?.modelName || previewBill.items?.[0]?.itemName || 'Mobile Purchase';
+    const total = previewBill.totalSellPrice || previewBill.totalSellAmount || previewBill.sellPrice || 0;
+    const method = previewBill.paymentMethod || 'Cash';
+    const imei = previewBill.items?.[0]?.imei1;
+    const billNum = previewBill.billNumber || previewBill.id.substring(0, 8).toUpperCase();
+    const url = getWhatsAppSaleBillUrl(phone, name, item, total, method, imei, billNum);
+    window.open(url, '_blank');
   };
 
   return (
@@ -202,6 +221,16 @@ export default function BillsHistoryPage() {
           </table>
         </div>
       </div>
+
+      {/* IN-APP PREVIEW MODAL */}
+      <BillPreviewModal
+        isOpen={!!previewBill}
+        onClose={() => setPreviewBill(null)}
+        htmlContent={billHtml}
+        title="Sale Receipt Preview"
+        billNumber={previewBill?.billNumber || previewBill?.id}
+        onShareWhatsApp={previewBill?.customerPhone ? handleWhatsAppForPreview : undefined}
+      />
     </div>
   );
 }

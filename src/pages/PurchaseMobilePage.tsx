@@ -9,9 +9,10 @@ import { Modal } from '../components/ui/Modal';
 import { SearchBar } from '../components/ui/SearchBar';
 import { Badge } from '../components/ui/Badge';
 import { useToast } from '../contexts/ToastContext';
-import { Edit, Trash2, Smartphone } from 'lucide-react';
+import { Edit, Trash2, Smartphone, QrCode } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
+import { BarcodeScanner } from '../components/BarcodeScanner';
 
 const COMPANIES = [
   { value: 'Samsung', label: 'Samsung' },
@@ -43,6 +44,10 @@ export default function PurchaseMobilePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
+  // Scanner state
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [activeScanField, setActiveScanField] = useState<'imei1' | 'imei2' | null>(null);
+
   const [formData, setFormData] = useState({
     modelName: '',
     company: 'Samsung',
@@ -53,10 +58,19 @@ export default function PurchaseMobilePage() {
     condition: 'New',
     purchaseDate: format(new Date(), 'yyyy-MM-dd'),
     supplier: '',
+    imei1: '',
+    imei2: '',
     notes: ''
   });
 
   const { success, error } = useToast();
+
+  const handleScan = (imei: string) => {
+    if (activeScanField) {
+      setFormData(prev => ({ ...prev, [activeScanField]: imei }));
+      success(`IMEI scanned: ${imei}`);
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'mobiles'), orderBy('createdAt', 'desc'));
@@ -90,6 +104,8 @@ export default function PurchaseMobilePage() {
         condition: mobile.condition || 'New',
         purchaseDate: formatDateSafe(mobile.purchaseDate || new Date(), 'yyyy-MM-dd'),
         supplier: mobile.supplier || '',
+        imei1: mobile.imei1 || '',
+        imei2: mobile.imei2 || '',
         notes: mobile.notes || ''
       });
     } else {
@@ -104,6 +120,8 @@ export default function PurchaseMobilePage() {
         condition: 'New',
         purchaseDate: format(new Date(), 'yyyy-MM-dd'),
         supplier: '',
+        imei1: '',
+        imei2: '',
         notes: ''
       });
     }
@@ -130,6 +148,8 @@ export default function PurchaseMobilePage() {
         condition: formData.condition,
         purchaseDate: new Date(formData.purchaseDate),
         supplier: formData.supplier.trim(),
+        imei1: formData.imei1 ? formData.imei1.trim() : '',
+        imei2: formData.imei2 ? formData.imei2.trim() : '',
         notes: formData.notes.trim(),
       };
 
@@ -430,6 +450,65 @@ export default function PurchaseMobilePage() {
               />
             </div>
           </div>
+
+          {/* Optional IMEI 1 and IMEI 2 with Barcode / QR Scanner */}
+          <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <QrCode className="w-4 h-4 text-amber-600" />
+                IMEI Numbers (Optional)
+              </span>
+              <span className="text-[11px] text-slate-400">
+                Optional · Scan QR / Barcode
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">IMEI 1</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={18}
+                    placeholder="Enter or scan IMEI 1"
+                    className="w-full font-mono text-base tracking-wider rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs"
+                    value={formData.imei1}
+                    onChange={e => setFormData({...formData, imei1: e.target.value})}
+                  />
+                  <button
+                    type="button"
+                    title="Scan IMEI 1 Barcode / QR"
+                    onClick={() => { setActiveScanField('imei1'); setScannerOpen(true); }}
+                    className="px-3 py-2.5 border border-slate-300 rounded-xl hover:bg-amber-50 hover:border-amber-400 text-amber-700 bg-white transition-all active:scale-95 shrink-0 shadow-2xs flex items-center justify-center"
+                  >
+                    <QrCode className="w-5 h-5 stroke-[2.2]" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">IMEI 2</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={18}
+                    placeholder="Enter or scan IMEI 2"
+                    className="w-full font-mono text-base tracking-wider rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs"
+                    value={formData.imei2}
+                    onChange={e => setFormData({...formData, imei2: e.target.value})}
+                  />
+                  <button
+                    type="button"
+                    title="Scan IMEI 2 Barcode / QR"
+                    onClick={() => { setActiveScanField('imei2'); setScannerOpen(true); }}
+                    className="px-3 py-2.5 border border-slate-300 rounded-xl hover:bg-amber-50 hover:border-amber-400 text-amber-700 bg-white transition-all active:scale-95 shrink-0 shadow-2xs flex items-center justify-center"
+                  >
+                    <QrCode className="w-5 h-5 stroke-[2.2]" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-500">Notes</label>
@@ -451,6 +530,13 @@ export default function PurchaseMobilePage() {
           </div>
         </form>
       </Modal>
+
+      {/* BARCODE / QR SCANNER MODAL */}
+      <BarcodeScanner
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleScan}
+      />
     </div>
   );
 }

@@ -24,14 +24,12 @@ const sections = [
     title: 'Sales',
     items: [
       { path: '/mobile-sales', icon: TrendingUp, label: 'Mobile Sales Record' },
-      { path: '/quick-sale', icon: Zap, label: 'Quick Sale' },
       { path: '/bills-history', icon: Receipt, label: 'Bills History' },
     ]
   },
   {
-    title: 'Finance & Accounts',
+    title: 'Khata & Accounts',
     items: [
-      { path: '/expenses', icon: CreditCard, label: 'Expenses' },
       { path: '/khata', icon: BookOpen, label: 'Khata / Ledger' },
     ]
   },
@@ -59,7 +57,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <aside className="h-full bg-forest text-white flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="h-16 flex items-center justify-between px-4 sm:px-5 border-b border-white/10 shrink-0 bg-obsidian-dark">
+      <div className="pt-[env(safe-area-inset-top,0px)] min-h-[calc(4rem+env(safe-area-inset-top,0px))] flex items-center justify-between px-4 sm:px-5 border-b border-white/10 shrink-0 bg-obsidian-dark">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-white p-0.5 border border-amber-500/30 flex items-center justify-center shadow-md shrink-0">
             <img src={SHOP_CONFIG.logoUrl} alt={SHOP_CONFIG.shortName} className="w-full h-full object-contain" />

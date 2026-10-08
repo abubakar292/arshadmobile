@@ -28,7 +28,7 @@ export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarPr
   }, []);
 
   return (
-    <header className="h-14 sm:h-16 bg-white border-b border-gray-100 flex items-center px-3 sm:px-6 gap-2 sm:gap-4 flex-shrink-0 z-30">
+    <header className="bg-white border-b border-gray-100 flex items-center px-3 sm:px-6 gap-2 sm:gap-4 flex-shrink-0 z-30 pt-[env(safe-area-inset-top,0px)] min-h-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:min-h-[calc(4rem+env(safe-area-inset-top,0px))]">
       {/* Hamburger (mobile only) */}
       {showMenuButton && onMenuClick && (
         <button

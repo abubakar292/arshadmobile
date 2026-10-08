@@ -1,15 +1,15 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  TrendingUp, Package, DollarSign, AlertCircle,
-  Plus, Zap, Receipt, BarChart3, Clock, Smartphone
+  TrendingUp, Package, DollarSign,
+  Plus, BarChart3, Clock, Smartphone, ShoppingCart, BookOpen
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
-import { collection, query, orderBy, limit, getDocs, where, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { format, subDays, startOfDay, endOfDay, isSameDay } from 'date-fns';
+import { format, subDays, startOfDay, isSameDay } from 'date-fns';
 import { parseDateSafe } from '../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 
@@ -45,7 +45,7 @@ export default function DashboardPage() {
     netProfit: 0,
     totalStock: 0,
     todaySales: 0,
-    pendingExpenses: 0,
+    totalStockValue: 0,
   });
   const [chartData, setChartData] = useState<{ name: string, profit: number }[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
@@ -56,10 +56,16 @@ export default function DashboardPage() {
         const today = new Date();
         const startOfToday = startOfDay(today);
         
-        // 1. Fetch total stock items
+        // 1. Fetch total stock items and valuation
         const stockSnap = await getDocs(query(collection(db, 'mobiles'), where('quantity', '>', 0)));
         let totalStock = 0;
-        stockSnap.forEach(doc => { totalStock += doc.data().quantity || 1; });
+        let totalStockValue = 0;
+        stockSnap.forEach(doc => { 
+          const data = doc.data();
+          const q = data.quantity || 1;
+          totalStock += q;
+          totalStockValue += (data.basePrice || 0) * q;
+        });
 
         // 2. Fetch today's sales
         const todaySalesSnap = await getDocs(query(collection(db, 'sales'), where('createdAt', '>=', startOfToday)));
@@ -71,26 +77,16 @@ export default function DashboardPage() {
           todayProfit += data.profit || 0;
         });
 
-        // 3. Fetch pending expenses
-        const expensesSnap = await getDocs(query(collection(db, 'expenses'), where('createdAt', '>=', startOfToday)));
-        let todayExpenses = 0;
-        expensesSnap.forEach(doc => {
-          todayExpenses += doc.data().amount || 0;
-        });
-
-        const netProfit = todayProfit - todayExpenses;
-
         setStats({
-          netProfit,
+          netProfit: todayProfit,
           totalStock,
           todaySales,
-          pendingExpenses: todayExpenses,
+          totalStockValue,
         });
 
-        // 4. Fetch 7-day profit trend
+        // 3. Fetch 7-day profit trend
         const sevenDaysAgo = startOfDay(subDays(today, 6));
         const weeklySalesSnap = await getDocs(query(collection(db, 'sales'), where('createdAt', '>=', sevenDaysAgo)));
-        const weeklyExpensesSnap = await getDocs(query(collection(db, 'expenses'), where('createdAt', '>=', sevenDaysAgo)));
 
         const dailyData = Array.from({ length: 7 }).map((_, i) => {
           const d = subDays(today, 6 - i);
@@ -106,13 +102,6 @@ export default function DashboardPage() {
           const d = parseDateSafe(data.createdAt) || new Date();
           const dayData = dailyData.find(x => isSameDay(x.date, d));
           if (dayData) dayData.profit += (data.profit || 0);
-        });
-
-        weeklyExpensesSnap.forEach(doc => {
-          const data = doc.data();
-          const d = parseDateSafe(data.createdAt) || new Date();
-          const dayData = dailyData.find(x => isSameDay(x.date, d));
-          if (dayData) dayData.profit -= (data.amount || 0);
         });
 
         setChartData(dailyData.map(d => ({ name: d.name, profit: d.profit })));
@@ -170,14 +159,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { 
-            label: "Today's Net Profit", 
+            label: "Today's Profit", 
             value: stats.netProfit, 
             prefix: 'Rs. ', 
             icon: TrendingUp, 
             color: 'bg-forest',
             trend: '+0%',
             isPositive: stats.netProfit >= 0,
-            note: 'Mobile Sales Profit - All Expenses'
+            note: 'Mobile Sales Profit'
           },
           { 
             label: 'Total Stock Items', 
@@ -197,13 +186,14 @@ export default function DashboardPage() {
             isPositive: true
           },
           { 
-            label: 'Today\'s Expenses', 
-            value: stats.pendingExpenses, 
+            label: 'Total Stock Valuation', 
+            value: stats.totalStockValue, 
             prefix: 'Rs. ', 
-            icon: AlertCircle, 
+            icon: BarChart3, 
             color: 'bg-amber-500',
             trend: '0',
-            isPositive: true
+            isPositive: true,
+            note: 'Cost value of stock'
           }
         ].map((stat, i) => (
           <motion.div
@@ -323,10 +313,10 @@ export default function DashboardPage() {
       {/* QUICK ACTIONS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Add Mobile', icon: Plus, color: 'bg-forest', path: '/purchase-mobile' },
-          { label: 'Quick Sale', icon: Zap, color: 'bg-emerald-600', path: '/quick-sale' },
-          { label: 'Record Expense', icon: Receipt, color: 'bg-amber-500', path: '/expenses' },
-          { label: 'View Reports', icon: BarChart3, color: 'bg-gray-800', path: '/inventory-valuation' },
+          { label: 'Purchase Mobile', icon: Plus, color: 'bg-forest', path: '/purchase-mobile' },
+          { label: 'Stock & Sell', icon: Smartphone, color: 'bg-emerald-600', path: '/mobiles-stock' },
+          { label: 'Sales Record', icon: TrendingUp, color: 'bg-amber-600', path: '/mobile-sales' },
+          { label: 'Khata Ledger', icon: BookOpen, color: 'bg-gray-800', path: '/khata' },
         ].map((action, i) => (
           <motion.div
             key={i}
