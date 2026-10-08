@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, MessageCircle, ArrowUpRight, ArrowDownLeft, BookOpen, X, Edit2, Trash2, AlertTriangle, PhoneCall } from 'lucide-react';
 import { format } from 'date-fns';
-import { parseDateSafe } from '../utils/dateUtils';
+import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -238,149 +238,184 @@ export default function CustomerLedgerPage() {
   if (!customer) return <div className="p-8 text-center text-red-500">Customer not found</div>;
 
   return (
-    <div className="max-w-3xl mx-auto pb-8">
+    <div className="max-w-3xl mx-auto pb-12">
       
       {/* HEADER */}
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-          <ArrowLeft className="w-5 h-5 text-gray-700" />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-gray-900">{customer.name}</h1>
-            <button
-              onClick={() => {
-                setPhoneToUpdate(customer.phone || '');
-                setIsEditingPhone(true);
-              }}
-              title="Edit Phone Number"
-              className="p-1 text-slate-400 hover:text-amber-600 rounded-md transition-colors"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <p className="text-sm text-gray-500">{customer.phone || 'No phone added'}</p>
-        </div>
-        {customer.phone ? (
-          <a
-            href={getWhatsAppKhataUrl(customer.phone, customer.name, customer.totalBalance || 0, customer.type)}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm shadow-sm transition-all"
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-3 min-w-0">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors shrink-0 active:scale-95"
+            aria-label="Back"
           >
-            <MessageCircle className="w-4 h-4 fill-white/20" />
-            <span>WhatsApp تقاضا</span>
-          </a>
-        ) : (
-          <button
-            onClick={() => {
-              setPhoneToUpdate('');
-              setIsEditingPhone(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs border border-emerald-300 shadow-xs transition-all"
-          >
-            <MessageCircle className="w-4 h-4 text-emerald-600" />
-            <span>+ Add Phone for WhatsApp</span>
+            <ArrowLeft className="w-5 h-5" />
           </button>
-        )}
-      </div>
-
-      {/* BALANCE CARD */}
-      <div className={`rounded-2xl p-6 mb-4 text-white shadow-lg relative overflow-hidden ${
-        customer.type === 'receivable' ? 'bg-gradient-to-r from-obsidian-dark to-obsidian border border-amber-500/30' : 'bg-amber-600'
-      }`}>
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-sm text-gray-300 mb-1">Total Balance</p>
-            <p className="text-4xl font-extrabold mb-1 text-white">
-              Rs. {(customer.totalBalance || 0).toLocaleString()}
-            </p>
-            <p className="text-sm font-medium text-amber-400">
-              {customer.type === 'receivable' ? '⚡ Will give you (واجب الادا)' : 'You owe them'}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight truncate">
+                {customer.name}
+              </h1>
+              <button
+                onClick={() => {
+                  setPhoneToUpdate(customer.phone || '');
+                  setIsEditingPhone(true);
+                }}
+                title="Edit Phone Number"
+                className="p-1 text-gray-400 hover:text-amber-600 rounded-md transition-colors"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <p className="text-xs sm:text-sm text-gray-500 font-mono mt-0.5">
+              {customer.phone || 'No phone added'}
             </p>
           </div>
-          {customer.phone && (
+        </div>
+
+        {/* WhatsApp Top Button */}
+        <div className="shrink-0 self-stretch sm:self-auto">
+          {customer.phone ? (
             <a
               href={getWhatsAppKhataUrl(customer.phone, customer.name, customer.totalBalance || 0, customer.type)}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 hidden sm:flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition-all border border-emerald-400/40"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-transform active:scale-95"
             >
-              <MessageCircle className="w-4 h-4" />
-              1-Click تقاضا میسج
+              <MessageCircle className="w-4 h-4 fill-white/20" />
+              <span>WhatsApp تقاضا میسج</span>
             </a>
+          ) : (
+            <button
+              onClick={() => {
+                setPhoneToUpdate('');
+                setIsEditingPhone(true);
+              }}
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-300 shadow-2xs transition-all"
+            >
+              <MessageCircle className="w-4 h-4 text-emerald-600" />
+              <span>+ Add Phone for WhatsApp</span>
+            </button>
           )}
         </div>
       </div>
 
+      {/* BALANCE CARD */}
+      <div className={`rounded-2xl p-5 sm:p-6 mb-5 text-white shadow-lg relative overflow-hidden ${
+        customer.type === 'receivable' ? 'bg-gradient-to-r from-obsidian-dark to-surface border border-amber-500/30' : 'bg-gradient-to-r from-amber-600 to-amber-700 border border-amber-400/30'
+      }`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-xs sm:text-sm text-gray-300 uppercase tracking-wider font-semibold">
+              Current Total Balance
+            </p>
+            <p className="text-3xl sm:text-4xl font-black mt-1 text-white tracking-tight">
+              Rs. {(customer.totalBalance || 0).toLocaleString()}
+            </p>
+            <p className="text-xs sm:text-sm font-semibold text-amber-400 mt-1">
+              {customer.type === 'receivable' ? '⚡ Will give you (آپ نے وصول کرنا ہے)' : '🤝 You owe them (آپ نے ادا کرنا ہے)'}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* ACTION BUTTONS */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-5">
         <button
           onClick={() => setTxModalType('udhar')}
-          className="py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 font-semibold flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
+          className="py-3 px-2 rounded-xl bg-red-50 border border-red-200 text-red-600 font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-red-100 transition-colors shadow-2xs active:scale-95"
         >
-          <ArrowUpRight className="w-5 h-5" />
-          Udhar Diya
+          <ArrowUpRight className="w-5 h-5 shrink-0 stroke-[2.5]" />
+          <span>Udhar Diya (ادھار)</span>
         </button>
         <button
           onClick={() => setTxModalType('wasooli')}
-          className="py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 font-semibold flex items-center justify-center gap-2 hover:bg-emerald-100 transition-colors"
+          className="py-3 px-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-emerald-100 transition-colors shadow-2xs active:scale-95"
         >
-          <ArrowDownLeft className="w-5 h-5" />
-          Wasooli Li
+          <ArrowDownLeft className="w-5 h-5 shrink-0 stroke-[2.5]" />
+          <span>Wasooli Li (وصولی)</span>
         </button>
       </div>
 
       {/* TRANSACTION HISTORY */}
-      <div className="bg-white rounded-xl shadow-card overflow-hidden border border-gray-100">
-        <div className="p-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-700">Transaction History</h3>
+      <div className="bg-white rounded-2xl shadow-card overflow-hidden border border-gray-100">
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-extrabold text-sm sm:text-base text-gray-900">
+            Transaction History
+          </h3>
+          <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+            {transactions.length} Records
+          </span>
         </div>
         
         {transactions.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">
-            <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">No transactions yet</p>
+          <div className="p-10 text-center text-gray-400">
+            <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-30" />
+            <p className="text-sm font-medium">No transactions recorded yet</p>
+            <p className="text-xs text-gray-400 mt-1">Record Udhar or Wasooli using buttons above</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-100">
             {transactions.map((tx, index) => (
               <motion.div
                 key={tx.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="flex items-center gap-3 sm:gap-4 p-4 hover:bg-gray-50 transition-colors group"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.03, 0.3) }}
+                className="p-4 hover:bg-amber-50/20 transition-colors space-y-2.5"
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  tx.transactionType === 'udhar' ? 'bg-red-100 text-red-500' : 'bg-emerald-100 text-emerald-600'
-                }`}>
-                  {tx.transactionType === 'udhar' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownLeft className="w-5 h-5" />}
+                {/* ── CARD TOP ROW: Icon + Title & Date (Left) | Amount & Running Balance (Right) ── */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
+                      tx.transactionType === 'udhar' 
+                        ? 'bg-red-50 text-red-600 border border-red-200' 
+                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}>
+                      {tx.transactionType === 'udhar' ? (
+                        <ArrowUpRight className="w-5 h-5 stroke-[2.5]" />
+                      ) : (
+                        <ArrowDownLeft className="w-5 h-5 stroke-[2.5]" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm sm:text-base font-extrabold ${
+                          tx.transactionType === 'udhar' ? 'text-red-700' : 'text-emerald-800'
+                        }`}>
+                          {tx.transactionType === 'udhar' ? 'ادھار دیا (Udhar)' : 'وصولی لی (Wasooli)'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {formatDateSafe(tx.date, 'dd MMM yyyy')} • {formatDateSafe(tx.createdAt, 'hh:mm a')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Amount & Balance */}
+                  <div className="text-right shrink-0">
+                    <p className={`text-base sm:text-lg font-black tracking-tight ${
+                      tx.transactionType === 'udhar' ? 'text-red-600' : 'text-emerald-700'
+                    }`}>
+                      {tx.transactionType === 'udhar' ? '+' : '-'} Rs. {(tx.amount || 0).toLocaleString()}
+                    </p>
+                    <p className="text-[11px] font-semibold text-gray-400 mt-0.5">
+                      Bal: <span className="text-gray-800 font-bold">Rs. {(tx.runningBalance || 0).toLocaleString()}</span>
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-gray-900">
-                    {tx.transactionType === 'udhar' ? 'Udhar Diya' : 'Wasooli Li'}
-                  </p>
-                  {tx.description && <p className="text-xs text-gray-500 truncate">{tx.description}</p>}
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {format(tx.date, 'dd MMM yyyy')} at {format(tx.createdAt, 'hh:mm a')}
-                  </p>
-                </div>
+                {/* ── CARD MIDDLE: Description Note (Full Width Bubble) ── */}
+                {tx.description && (
+                  <div className="px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-100 text-xs text-gray-700 font-medium break-words">
+                    <span className="text-gray-400 mr-1.5 font-normal">تفصیل / Note:</span>
+                    {tx.description}
+                  </div>
+                )}
 
-                <div className="text-right flex-shrink-0">
-                  <p className={`font-bold ${
-                    tx.transactionType === 'udhar' ? 'text-red-500' : 'text-emerald-600'
-                  }`}>
-                    {tx.transactionType === 'udhar' ? '+' : '-'} Rs. {(tx.amount || 0).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Bal: Rs. {(tx.runningBalance || 0).toLocaleString()}
-                  </p>
-                </div>
-
-                {/* WhatsApp, Edit & Delete Action Buttons for each Transaction */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                {/* ── CARD BOTTOM: Action Bar (WhatsApp, Edit, Delete) ── */}
+                <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+                  {/* WhatsApp Action Button */}
                   {customer.phone ? (
                     <a
                       href={getWhatsAppTransactionUrl(
@@ -390,14 +425,15 @@ export default function CustomerLedgerPage() {
                         tx.amount,
                         tx.description,
                         tx.runningBalance,
-                        format(tx.date, 'dd MMM yyyy')
+                        formatDateSafe(tx.date, 'dd MMM yyyy')
                       )}
                       target="_blank"
                       rel="noreferrer"
                       title="Send WhatsApp update for this transaction"
-                      className="p-1.5 text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-transform active:scale-95"
                     >
-                      <MessageCircle className="w-4 h-4 fill-emerald-500/20" />
+                      <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
+                      <span>WhatsApp رسید</span>
                     </a>
                   ) : (
                     <button
@@ -407,28 +443,34 @@ export default function CustomerLedgerPage() {
                         setPhoneToUpdate('');
                         setIsEditingPhone(true);
                       }}
-                      className="p-1.5 text-slate-400 hover:text-emerald-600 bg-slate-50 hover:bg-emerald-50 rounded-lg transition-colors border border-dashed border-slate-300"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-50 hover:bg-emerald-50 text-gray-600 hover:text-emerald-700 text-xs font-semibold border border-dashed border-gray-300 transition-colors"
                     >
-                      <MessageCircle className="w-4 h-4" />
+                      <MessageCircle className="w-3.5 h-3.5 text-gray-400" />
+                      <span>+ فون درج کریں (WhatsApp)</span>
                     </button>
                   )}
 
-                  <button
-                    type="button"
-                    title="Edit Transaction"
-                    onClick={() => handleOpenEditTx(tx)}
-                    className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Delete Transaction"
-                    onClick={() => handleOpenDeleteTx(tx)}
-                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {/* Edit and Delete Buttons */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      title="Edit Transaction"
+                      onClick={() => handleOpenEditTx(tx)}
+                      className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-gray-500 hover:text-amber-700 hover:bg-amber-50 text-xs font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span className="hidden xs:inline">Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      title="Delete Transaction"
+                      onClick={() => handleOpenDeleteTx(tx)}
+                      className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-gray-500 hover:text-red-700 hover:bg-red-50 text-xs font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span className="hidden xs:inline">Delete</span>
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             ))}
