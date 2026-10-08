@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, ShoppingCart, Smartphone, TrendingUp, Zap, Receipt, 
-  CreditCard, BookOpen, Package, Settings
+  CreditCard, BookOpen, Package, Settings, X, Download
 } from 'lucide-react';
 import { SHOP_CONFIG } from '../../config/shopConfig';
 
@@ -29,14 +29,14 @@ const sections = [
     ]
   },
   {
-    title: 'Finance',
+    title: 'Finance & Accounts',
     items: [
       { path: '/expenses', icon: CreditCard, label: 'Expenses' },
       { path: '/khata', icon: BookOpen, label: 'Khata / Ledger' },
     ]
   },
   {
-    title: 'Reports',
+    title: 'Reports & Audit',
     items: [
       { path: '/inventory-valuation', icon: Package, label: 'Inventory Valuation' },
     ]
@@ -58,9 +58,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   return (
     <aside className="h-full bg-forest text-white flex flex-col overflow-hidden">
-      <div className="h-16 flex items-center px-4 sm:px-5 border-b border-white/10 shrink-0 bg-obsidian-dark">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white p-0.5 border border-amber-500/30 flex items-center justify-center shadow-md">
+      {/* Header */}
+      <div className="h-16 flex items-center justify-between px-4 sm:px-5 border-b border-white/10 shrink-0 bg-obsidian-dark">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-white p-0.5 border border-amber-500/30 flex items-center justify-center shadow-md shrink-0">
             <img src={SHOP_CONFIG.logoUrl} alt={SHOP_CONFIG.shortName} className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col min-w-0">
@@ -72,10 +73,22 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             </span>
           </div>
         </div>
+
+        {/* Mobile Close X button */}
+        {onNavigate && (
+          <button
+            onClick={onNavigate}
+            className="lg:hidden p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto py-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-        <div className="px-4 space-y-6">
+      {/* Navigation Links */}
+      <div className="flex-1 overflow-y-auto py-5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        <div className="px-3.5 space-y-5">
           {sections.map((section, idx) => (
             <div key={idx} className="space-y-1">
               {section.title && (
@@ -114,6 +127,13 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Footer Branding */}
+      <div className="p-3 border-t border-white/10 bg-obsidian-dark/50 text-center shrink-0">
+        <p className="text-[10px] text-white/40">
+          {SHOP_CONFIG.name} • {SHOP_CONFIG.shortName} v2.0
+        </p>
       </div>
     </aside>
   );

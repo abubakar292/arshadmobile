@@ -183,7 +183,8 @@ export default function PurchaseMobilePage() {
           />
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
@@ -253,6 +254,76 @@ export default function PurchaseMobilePage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards View (Optimized for Phones) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="py-4 space-y-2 animate-pulse">
+                <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+                <div className="h-4 bg-slate-100 rounded w-2/3"></div>
+              </div>
+            ))
+          ) : filteredMobiles.length === 0 ? (
+            <div className="py-12 text-center text-slate-500">
+              <Smartphone className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+              <p>No mobiles found. Add your first mobile above.</p>
+            </div>
+          ) : (
+            filteredMobiles.map((m) => (
+              <div key={m.id} className="py-3.5 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm leading-snug">{m.modelName}</h3>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-800 border border-amber-500/30">
+                        {m.company || m.brand || 'Samsung'}
+                      </span>
+                      {m.ramRom && (
+                        <span className="text-[11px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
+                          {m.ramRom}
+                        </span>
+                      )}
+                      <Badge variant={m.condition === 'New' ? 'info' : 'default'} className="text-[10px] py-0">
+                        {m.condition}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <Badge variant={m.quantity > 3 ? 'success' : m.quantity > 0 ? 'warning' : 'danger'}>
+                      Qty: {m.quantity}
+                    </Badge>
+                    <p className="font-extrabold text-slate-900 text-sm mt-1">
+                      Rs. {m.basePrice?.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-50 text-xs">
+                  <span className="text-slate-400">
+                    {formatDateSafe(m.purchaseDate, 'dd MMM yyyy')}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleOpenModal(m)} 
+                      className="px-2.5 py-1 text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors flex items-center gap-1"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(m.id)} 
+                      className="px-2.5 py-1 text-xs font-semibold text-accent-rose bg-accent-rose/10 hover:bg-accent-rose/20 rounded-lg transition-colors flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
