@@ -427,7 +427,12 @@ export default function MobilesStockPage() {
                   </Badge>
                 </div>
                 
-                <div className="flex items-center gap-2 mb-4 text-xs font-medium">
+                <div className="flex items-center gap-2 mb-4 text-xs font-medium flex-wrap">
+                  {m.registerPageNo && (
+                    <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded-md font-mono font-black border border-amber-300">
+                      Pg #{m.registerPageNo}
+                    </span>
+                  )}
                   <span className="px-2 py-1 bg-white rounded-md text-primary-600 border border-primary-100">{m.ramRom || 'N/A'}</span>
                   <span className="px-2 py-1 bg-white rounded-md text-slate-500 border border-slate-200">{m.condition}</span>
                 </div>

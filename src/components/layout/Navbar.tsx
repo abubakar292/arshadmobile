@@ -28,27 +28,27 @@ export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarPr
   }, []);
 
   return (
-    <header className="bg-white border-b border-gray-100 flex items-center px-3 sm:px-6 gap-2 sm:gap-4 flex-shrink-0 z-30 pt-[env(safe-area-inset-top,0px)] min-h-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:min-h-[calc(4rem+env(safe-area-inset-top,0px))]">
+    <header className="bg-white border-b border-gray-100 flex items-center px-2.5 sm:px-6 gap-1.5 sm:gap-4 flex-shrink-0 z-30 pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-2 min-h-[calc(3.75rem+env(safe-area-inset-top,0px))] sm:min-h-[calc(4.25rem+env(safe-area-inset-top,0px))]">
       {/* Hamburger (mobile only) */}
       {showMenuButton && onMenuClick && (
         <button
           onClick={onMenuClick}
-          className="p-2 -ml-1 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-forest transition-colors lg:hidden active:scale-95"
+          className="p-1.5 -ml-0.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors lg:hidden active:scale-95 shrink-0"
           aria-label="Open menu"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-5 h-5 stroke-[2.2]" />
         </button>
       )}
 
       {/* Logo / Title */}
-      <div className="flex items-center gap-2 min-w-0">
-        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white p-0.5 border border-amber-500/25 shadow-xs flex items-center justify-center shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+        <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-white p-0.5 border border-amber-500/25 shadow-xs flex items-center justify-center shrink-0">
           <img src={SHOP_CONFIG.logoUrl} alt={SHOP_CONFIG.shortName} className="w-full h-full object-contain" />
         </div>
         <div className="flex flex-col min-w-0">
           <span className="font-extrabold text-xs sm:text-base text-gray-900 tracking-tight truncate flex items-center gap-1">
-            {SHOP_CONFIG.name}
-            <span className="text-[10px] bg-amber-100 text-amber-900 font-black px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
+            <span className="truncate">{SHOP_CONFIG.name}</span>
+            <span className="text-[9px] sm:text-[10px] bg-amber-100 text-amber-900 font-black px-1 sm:px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
               {SHOP_CONFIG.shortName}
             </span>
           </span>
@@ -58,20 +58,17 @@ export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarPr
         </div>
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
-
       {/* Right actions */}
-      <div className="flex items-center gap-1.5 sm:gap-2">
-        {/* Install App Button */}
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        {/* Install App Button (hidden on narrow screens to protect notification bell & account profile) */}
         {onInstallClick && (
           <button
             onClick={onInstallClick}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 text-xs font-bold border border-amber-500/25 transition-all active:scale-95 shadow-2xs"
+            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 text-xs font-bold border border-amber-500/25 transition-all active:scale-95 shadow-2xs"
             title="Install AMZ App on Phone"
           >
             <Smartphone className="w-3.5 h-3.5 text-amber-700" />
-            <span className="hidden xs:inline">Install App</span>
+            <span>Install App</span>
           </button>
         )}
 
@@ -79,7 +76,7 @@ export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarPr
         <div className="relative">
           <button 
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-forest transition-colors relative"
+            className="p-1.5 sm:p-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-forest transition-colors relative active:scale-95"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5" />
@@ -131,9 +128,10 @@ export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarPr
         <div className="relative">
           <button 
             onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-lg hover:bg-gray-100 transition-colors border border-transparent"
+            className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-lg hover:bg-gray-100 transition-colors border border-transparent active:scale-95"
+            aria-label="Account menu"
           >
-            <div className="w-7 h-7 rounded-full bg-forest flex items-center justify-center text-white text-xs font-bold overflow-hidden shadow-2xs">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-forest flex items-center justify-center text-white text-xs font-bold overflow-hidden shadow-2xs shrink-0">
               {user?.photoURL ? (
                 <img src={user.photoURL} alt={user.displayName || 'User'} className="w-full h-full object-cover" />
               ) : (

@@ -58,6 +58,7 @@ export default function PurchaseMobilePage() {
     condition: 'New',
     purchaseDate: format(new Date(), 'yyyy-MM-dd'),
     supplier: '',
+    registerPageNo: '',
     imei1: '',
     imei2: '',
     notes: ''
@@ -83,8 +84,12 @@ export default function PurchaseMobilePage() {
 
   const filteredMobiles = mobiles.filter(m => {
     const comp = m.company || m.brand || '';
+    const regNo = (m.registerPageNo || '').toString();
     const matchesSearch = (m.modelName && m.modelName.toLowerCase().includes(search.toLowerCase())) || 
-                          comp.toLowerCase().includes(search.toLowerCase());
+                          comp.toLowerCase().includes(search.toLowerCase()) ||
+                          regNo.toLowerCase().includes(search.toLowerCase()) ||
+                          (m.imei1 && m.imei1.includes(search)) ||
+                          (m.imei2 && m.imei2.includes(search));
     const matchesCompany = filterCompany ? comp.toLowerCase() === filterCompany.toLowerCase() : true;
     return matchesSearch && matchesCompany;
   });
@@ -104,6 +109,7 @@ export default function PurchaseMobilePage() {
         condition: mobile.condition || 'New',
         purchaseDate: formatDateSafe(mobile.purchaseDate || new Date(), 'yyyy-MM-dd'),
         supplier: mobile.supplier || '',
+        registerPageNo: (mobile.registerPageNo ?? '').toString(),
         imei1: mobile.imei1 || '',
         imei2: mobile.imei2 || '',
         notes: mobile.notes || ''
@@ -120,6 +126,7 @@ export default function PurchaseMobilePage() {
         condition: 'New',
         purchaseDate: format(new Date(), 'yyyy-MM-dd'),
         supplier: '',
+        registerPageNo: '',
         imei1: '',
         imei2: '',
         notes: ''
@@ -148,6 +155,7 @@ export default function PurchaseMobilePage() {
         condition: formData.condition,
         purchaseDate: new Date(formData.purchaseDate),
         supplier: formData.supplier.trim(),
+        registerPageNo: formData.registerPageNo ? formData.registerPageNo.trim() : '',
         imei1: formData.imei1 ? formData.imei1.trim() : '',
         imei2: formData.imei2 ? formData.imei2.trim() : '',
         notes: formData.notes.trim(),
@@ -210,6 +218,7 @@ export default function PurchaseMobilePage() {
               <tr>
                 <th className="px-4 py-3 font-semibold rounded-tl-xl">Company / Brand</th>
                 <th className="px-4 py-3 font-semibold">Model</th>
+                <th className="px-4 py-3 font-semibold">Reg. Page #</th>
                 <th className="px-4 py-3 font-semibold">RAM/ROM</th>
                 <th className="px-4 py-3 font-semibold">Base Price</th>
                 <th className="px-4 py-3 font-semibold">Qty</th>
@@ -225,6 +234,7 @@ export default function PurchaseMobilePage() {
                     <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
                     <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
                     <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
                     <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
                     <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-8"></div></td>
                     <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
@@ -234,7 +244,7 @@ export default function PurchaseMobilePage() {
                 ))
               ) : filteredMobiles.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
                     <Smartphone className="w-12 h-12 mx-auto text-slate-300 mb-3" />
                     <p>No mobiles found. Add your first mobile above.</p>
                   </td>
@@ -248,6 +258,15 @@ export default function PurchaseMobilePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 font-medium text-slate-900">{m.modelName}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-slate-700">
+                      {m.registerPageNo ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200/80 text-xs font-black">
+                          Pg #{m.registerPageNo}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-slate-500">{m.ramRom || '-'}</td>
                     <td className="px-4 py-3 font-medium">Rs. {m.basePrice?.toLocaleString()}</td>
                     <td className="px-4 py-3">
@@ -300,6 +319,11 @@ export default function PurchaseMobilePage() {
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-800 border border-amber-500/30">
                         {m.company || m.brand || 'Samsung'}
                       </span>
+                      {m.registerPageNo && (
+                        <span className="text-[11px] font-mono font-black px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                          Pg #{m.registerPageNo}
+                        </span>
+                      )}
                       {m.ramRom && (
                         <span className="text-[11px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
                           {m.ramRom}
@@ -444,9 +468,24 @@ export default function PurchaseMobilePage() {
               <label className="text-xs font-medium text-slate-500">Supplier</label>
               <input
                 type="text"
+                placeholder="e.g. Local Market / Supplier Name"
                 className="w-full rounded-xl border border-primary-500/20 bg-white/5 px-4 py-2.5 text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
                 value={formData.supplier}
                 onChange={e => setFormData({...formData, supplier: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                <span>Register Page No.</span>
+                <span className="text-[11px] font-normal text-slate-400">Numbers only</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                placeholder="e.g. 45"
+                className="w-full font-mono font-bold text-base rounded-xl border border-amber-500/30 bg-amber-50/30 px-4 py-2.5 text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs"
+                value={formData.registerPageNo}
+                onChange={e => setFormData({...formData, registerPageNo: e.target.value.replace(/\D/g, '')})}
               />
             </div>
           </div>
