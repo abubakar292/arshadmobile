@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Printer, Eye, Share2 } from 'lucide-react';
+import { Check, Printer, Eye, Share2, Bluetooth } from 'lucide-react';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { BillPreviewModal } from './BillPreviewModal';
+import { BluetoothPrinterModal } from './BluetoothPrinterModal';
 import { getBillHtml } from '../../utils/printBill';
 import { getWhatsAppSaleBillUrl } from '../../config/shopConfig';
 
@@ -16,13 +17,19 @@ interface PrintPromptModalProps {
 
 export function PrintPromptModal({ isOpen, onClose, billData, profit }: PrintPromptModalProps) {
   const [showPreview, setShowPreview] = useState(false);
+  const [showBluetooth, setShowBluetooth] = useState(false);
 
   const handleOpenPreview = () => {
     setShowPreview(true);
   };
 
+  const handleOpenBluetooth = () => {
+    setShowBluetooth(true);
+  };
+
   const handleCloseAll = () => {
     setShowPreview(false);
+    setShowBluetooth(false);
     onClose();
   };
 
@@ -41,7 +48,7 @@ export function PrintPromptModal({ isOpen, onClose, billData, profit }: PrintPro
 
   return (
     <>
-      <Modal isOpen={isOpen && !showPreview} onClose={onClose} title="Success" size="sm">
+      <Modal isOpen={isOpen && !showPreview && !showBluetooth} onClose={onClose} title="Success" size="sm">
         <div className="text-center">
           <motion.div
             initial={{ scale: 0 }}
@@ -57,14 +64,33 @@ export function PrintPromptModal({ isOpen, onClose, billData, profit }: PrintPro
             Profit: <span className="text-accent-emerald font-bold">Rs. {profit.toLocaleString()}</span>
           </p>
           
-          <div className="flex flex-col gap-2.5 mt-6">
-            <Button variant="primary" className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-obsidian-dark font-extrabold" onClick={handleOpenPreview}>
+          <div className="flex flex-col gap-2 mt-5">
+            {/* Bluetooth Mini Printer direct button */}
+            <Button
+              variant="primary"
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold shadow-xs"
+              onClick={handleOpenBluetooth}
+            >
+              <Bluetooth className="w-4 h-4" />
+              Bluetooth Mini Printer
+            </Button>
+
+            {/* Standard Preview & System Print */}
+            <Button
+              variant="secondary"
+              className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-obsidian-dark font-extrabold border-amber-600"
+              onClick={handleOpenPreview}
+            >
               <Eye className="w-4 h-4 stroke-[2.5]" />
-              Preview & Print Bill
+              Preview & System Print
             </Button>
             
             {billData?.customerPhone && (
-              <Button variant="secondary" className="w-full flex items-center justify-center gap-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200" onClick={handleWhatsAppShare}>
+              <Button
+                variant="secondary"
+                className="w-full flex items-center justify-center gap-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200"
+                onClick={handleWhatsAppShare}
+              >
                 <Share2 className="w-4 h-4" />
                 Share on WhatsApp
               </Button>
@@ -84,7 +110,15 @@ export function PrintPromptModal({ isOpen, onClose, billData, profit }: PrintPro
         htmlContent={billHtml}
         title="Sale Receipt"
         billNumber={billData?.billNumber || billData?.id}
+        billData={billData}
         onShareWhatsApp={billData?.customerPhone ? handleWhatsAppShare : undefined}
+      />
+
+      {/* DIRECT BLUETOOTH THERMAL PRINTER MODAL */}
+      <BluetoothPrinterModal
+        isOpen={showBluetooth}
+        onClose={handleCloseAll}
+        billData={billData}
       />
     </>
   );

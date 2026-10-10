@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, writeBatch, getDoc, getDocs, where, increment, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Button } from '../components/ui/Button';
 import { SearchBar } from '../components/ui/SearchBar';
@@ -8,7 +8,7 @@ import { Select } from '../components/ui/Select';
 import { useToast } from '../contexts/ToastContext';
 import { 
   FileText, Undo2, AlertCircle, Filter, RotateCcw, MessageCircle, 
-  Smartphone, ChevronDown, ChevronUp, Layers, CheckCircle2, DollarSign 
+  Smartphone, ChevronDown, ChevronUp, Layers, CheckCircle2, DollarSign, Bluetooth 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -18,6 +18,7 @@ import {
 import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
 import { getBillHtml } from '../utils/printBill';
 import { BillPreviewModal } from '../components/ui/BillPreviewModal';
+import { BluetoothPrinterModal } from '../components/ui/BluetoothPrinterModal';
 import { getWhatsAppSaleBillUrl } from '../config/shopConfig';
 
 const COMPANY_OPTIONS = [
@@ -80,6 +81,9 @@ export default function MobileSalesPage() {
 
   // In-app bill preview state
   const [previewSaleBill, setPreviewSaleBill] = useState<any | null>(null);
+
+  // Bluetooth printer modal state
+  const [bluetoothSaleBill, setBluetoothSaleBill] = useState<any | null>(null);
 
   const { success, error } = useToast();
 
@@ -197,29 +201,113 @@ export default function MobileSalesPage() {
   const returnedCount = filteredSales.filter(s => s.status === 'returned').length;
 
   const handleReturn = async () => {
-    if (saleToReturn) {
-      try {
-        const batch = writeBatch(db);
-        
-        // Update sale status
-        const saleRef = doc(db, 'sales', saleToReturn.id);
-        batch.update(saleRef, { status: 'returned' });
-        
-        // If it's a mobile from inventory, restore quantity
-        if (saleToReturn.itemType === 'mobile' && saleToReturn.itemId) {
-          const mobileRef = doc(db, 'mobiles', saleToReturn.itemId);
-          const { increment } = await import('firebase/firestore');
+    if (!saleToReturn) return;
+    try {
+      const batch = writeBatch(db);
+      
+      // 1. Update sale status in 'sales' collection
+      const saleRef = doc(db, 'sales', saleToReturn.id);
+      batch.update(saleRef, { 
+        status: 'returned',
+        returnedAt: serverTimestamp()
+      });
+      
+      // 2. Restore inventory mobile stock
+      let targetMobileId = saleToReturn.itemId;
+      
+      // If itemId is missing or not found, try to locate by imei or modelName
+      if (saleToReturn.itemType === 'mobile' && targetMobileId) {
+        const mobileRef = doc(db, 'mobiles', targetMobileId);
+        const mobileSnap = await getDoc(mobileRef);
+        if (mobileSnap.exists()) {
           batch.update(mobileRef, { quantity: increment(1) });
         }
-        
-        await batch.commit();
-        success('Sale marked as returned & stock restored successfully');
-      } catch (err: any) {
-        error(err.message || 'Error returning sale');
-      } finally {
-        setSaleToReturn(null);
+      } else if (saleToReturn.imei1) {
+        // Fallback: match by IMEI if available
+        try {
+          const matchQ = query(collection(db, 'mobiles'), where('imei1', '==', saleToReturn.imei1));
+          const matchSnap = await getDocs(matchQ);
+          if (!matchSnap.empty) {
+            batch.update(doc(db, 'mobiles', matchSnap.docs[0].id), { quantity: increment(1) });
+          }
+        } catch (findErr) {
+          console.warn('Could not match by imei1:', findErr);
+        }
       }
+
+      // 3. Mark the linked bill as returned if applicable
+      if (saleToReturn.billId) {
+        try {
+          const billRef = doc(db, 'bills', saleToReturn.billId);
+          const billSnap = await getDoc(billRef);
+          if (billSnap.exists()) {
+            batch.update(billRef, { status: 'returned', returnedAt: serverTimestamp() });
+          }
+        } catch (bErr) {
+          console.warn('Bill update skipped:', bErr);
+        }
+      }
+
+      // 4. Reverse Khata balance if this sale was on Udhar
+      const khataId = saleToReturn.khataCustomerId;
+      const salePrice = Number(saleToReturn.sellPrice) || 0;
+      if (saleToReturn.paymentMethod === 'Udhar' && khataId && salePrice > 0) {
+        try {
+          const khataRef = doc(db, 'khata', khataId);
+          const khataSnap = await getDoc(khataRef);
+          if (khataSnap.exists()) {
+            const currentBalance = khataSnap.data().totalBalance || 0;
+            const newBalance = Math.max(0, currentBalance - salePrice);
+            batch.update(khataRef, { totalBalance: newBalance });
+
+            const txnRef = doc(collection(db, 'khataTransactions'));
+            batch.set(txnRef, {
+              khataId,
+              customerName: khataSnap.data().name || saleToReturn.customerName,
+              transactionType: 'wasooli',
+              amount: salePrice,
+              description: `Return/Reversal: ${saleToReturn.itemName || 'Mobile'}`,
+              runningBalance: newBalance,
+              date: new Date(),
+              createdAt: serverTimestamp(),
+              linkedSaleId: saleToReturn.id
+            });
+          }
+        } catch (khataErr) {
+          console.warn('Khata reversal error:', khataErr);
+        }
+      }
+      
+      await batch.commit();
+      success('Sale marked as returned: stock restored and dashboard updated!');
+    } catch (err: any) {
+      error(err.message || 'Error returning sale');
+    } finally {
+      setSaleToReturn(null);
     }
+  };
+
+  const handleOpenBluetooth = (sale: any) => {
+    setBluetoothSaleBill({
+      id: sale.billId || sale.id,
+      billNumber: sale.billNumber || sale.id.substring(0, 8).toUpperCase(),
+      customerName: sale.customerName,
+      customerPhone: sale.customerPhone || sale.phone,
+      itemName: sale.itemName,
+      company: sale.company || sale.brand,
+      imei1: sale.imei1,
+      imei2: sale.imei2,
+      sellPrice: sale.sellPrice,
+      paymentMethod: sale.paymentMethod,
+      date: sale.date || sale.createdAt,
+      items: [{
+        modelName: sale.itemName,
+        company: sale.company || sale.brand,
+        imei1: sale.imei1,
+        imei2: sale.imei2,
+        sellPrice: sale.sellPrice,
+      }]
+    });
   };
 
   const handleViewBill = (sale: any) => {
@@ -234,7 +322,14 @@ export default function MobileSalesPage() {
       imei2: sale.imei2,
       sellPrice: sale.sellPrice,
       paymentMethod: sale.paymentMethod,
-      date: sale.date || sale.createdAt
+      date: sale.date || sale.createdAt,
+      items: [{
+        modelName: sale.itemName,
+        company: sale.company || sale.brand,
+        imei1: sale.imei1,
+        imei2: sale.imei2,
+        sellPrice: sale.sellPrice,
+      }]
     });
   };
 
@@ -636,7 +731,16 @@ export default function MobileSalesPage() {
                             </a>
                           )}
 
-                          {/* Print Bill */}
+                          {/* Bluetooth Mini Printer */}
+                          <button
+                            onClick={() => handleOpenBluetooth(s)}
+                            title="Print to Bluetooth Mini Thermal Printer"
+                            className="p-1.5 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                          >
+                            <Bluetooth className="w-4 h-4" />
+                          </button>
+
+                          {/* Print / Preview Bill */}
                           <button
                             onClick={() => handleViewBill(s)}
                             title="Print / View Bill Receipt"
@@ -691,9 +795,12 @@ export default function MobileSalesPage() {
                 Are you sure you want to mark this sale for <strong className="text-gray-800">{saleToReturn.itemName}</strong> (Rs. {(saleToReturn.sellPrice || 0).toLocaleString()}) as returned?
               </p>
               <div className="bg-slate-50 rounded-xl p-3 mb-6 text-xs text-left text-slate-600 space-y-1">
-                <div>• Mobile inventory stock will be restored by +1.</div>
+                <div>• Mobile inventory stock will be restored by +1 in real-time.</div>
                 <div>• Sale status will be marked as <strong className="text-rose-600">Returned</strong>.</div>
-                <div>• Profit will be excluded from revenue calculations.</div>
+                <div>• Profit and sales amount will be automatically undone from Dashboard and Sales overview.</div>
+                {saleToReturn.paymentMethod === 'Udhar' && (
+                  <div>• Khata Udhar balance will be reversed for this customer.</div>
+                )}
               </div>
               <div className="flex gap-3">
                 <Button variant="secondary" className="flex-1" onClick={() => setSaleToReturn(null)}>
@@ -715,7 +822,15 @@ export default function MobileSalesPage() {
         htmlContent={saleBillHtml}
         title="Sale Receipt Preview"
         billNumber={previewSaleBill?.billNumber || previewSaleBill?.id}
+        billData={previewSaleBill}
         onShareWhatsApp={(previewSaleBill?.customerPhone || previewSaleBill?.phone) ? handleWhatsAppForSalePreview : undefined}
+      />
+
+      {/* DIRECT BLUETOOTH THERMAL PRINTER MODAL */}
+      <BluetoothPrinterModal
+        isOpen={!!bluetoothSaleBill}
+        onClose={() => setBluetoothSaleBill(null)}
+        billData={bluetoothSaleBill}
       />
 
     </div>

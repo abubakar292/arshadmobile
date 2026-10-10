@@ -5,7 +5,8 @@ import { SearchBar } from '../components/ui/SearchBar';
 import { Badge } from '../components/ui/Badge';
 import { Select } from '../components/ui/Select';
 import { BillPreviewModal } from '../components/ui/BillPreviewModal';
-import { FileText, MessageCircle, Eye } from 'lucide-react';
+import { BluetoothPrinterModal } from '../components/ui/BluetoothPrinterModal';
+import { FileText, MessageCircle, Eye, Bluetooth } from 'lucide-react';
 import { format, isToday, isThisWeek, isThisMonth, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
 import { getBillHtml } from '../utils/printBill';
@@ -23,6 +24,9 @@ export default function BillsHistoryPage() {
 
   // In-app bill preview state
   const [previewBill, setPreviewBill] = useState<any | null>(null);
+
+  // Bluetooth mini printer state
+  const [bluetoothBill, setBluetoothBill] = useState<any | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'bills'), orderBy('createdAt', 'desc'));
@@ -205,6 +209,14 @@ export default function BillsHistoryPage() {
                             <MessageCircle className="w-4 h-4 fill-emerald-500/20" />
                           </a>
                         )}
+                        {/* Bluetooth Mini Printer */}
+                        <button
+                          onClick={() => setBluetoothBill(b)}
+                          title="Print to Bluetooth Mini Thermal Printer"
+                          className="p-1.5 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                        >
+                          <Bluetooth className="w-4 h-4" />
+                        </button>
                         <button 
                           onClick={() => handlePrint(b)} 
                           className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors inline-flex items-center gap-1.5"
@@ -229,7 +241,15 @@ export default function BillsHistoryPage() {
         htmlContent={billHtml}
         title="Sale Receipt Preview"
         billNumber={previewBill?.billNumber || previewBill?.id}
+        billData={previewBill}
         onShareWhatsApp={previewBill?.customerPhone ? handleWhatsAppForPreview : undefined}
+      />
+
+      {/* DIRECT BLUETOOTH THERMAL PRINTER MODAL */}
+      <BluetoothPrinterModal
+        isOpen={!!bluetoothBill}
+        onClose={() => setBluetoothBill(null)}
+        billData={bluetoothBill}
       />
     </div>
   );

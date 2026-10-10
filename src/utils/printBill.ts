@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { formatDateSafe } from './dateUtils';
 import { printInNewWindow } from './printUtils';
+import { SHOP_CONFIG } from '../config/shopConfig';
 
 export function generateBillNumber(sequence?: number): string {
   const year = new Date().getFullYear();
@@ -87,10 +88,10 @@ export function getBillHtml(billData: any): string {
       <div class="bill-container">
         <div class="header">
           <div class="header-inner">
-            <img src="/logo.svg" alt="AMZ" class="header-logo" />
+            <img src="/logo.svg" alt={SHOP_CONFIG.shortName} class="header-logo" />
             <div>
-              <h1 style="margin:0; font-size: 22px; font-weight: 800; letter-spacing: 1px;">ARSHAD MOBILE ZONE</h1>
-              <p style="margin:4px 0 0 0; color: #F59E0B; font-weight: 700; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;">BARA BAZAR KHYBER • AMZ</p>
+              <h1 style="margin:0; font-size: 22px; font-weight: 800; letter-spacing: 1px;">${SHOP_CONFIG.name.toUpperCase()}</h1>
+              <p style="margin:4px 0 0 0; color: #F59E0B; font-weight: 700; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;">${SHOP_CONFIG.subTitle.toUpperCase()} • ${SHOP_CONFIG.shortName}</p>
             </div>
           </div>
         </div>
@@ -130,7 +131,7 @@ export function getBillHtml(billData: any): string {
         </div>
         <div class="footer">
           Thank you for your business! Visit Again 😊<br>
-          <strong>ARSHAD MOBILE ZONE (AMZ)</strong> • Bara Bazar, Khyber
+          <strong>${SHOP_CONFIG.name}</strong> • ${SHOP_CONFIG.address}
         </div>
       </div>
     </body>

@@ -7,7 +7,7 @@ import {
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
-import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { format, subDays, startOfDay, isSameDay } from 'date-fns';
 import { parseDateSafe } from '../utils/dateUtils';
@@ -51,88 +51,124 @@ export default function DashboardPage() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        const today = new Date();
-        const startOfToday = startOfDay(today);
-        
-        // 1. Fetch total stock items and valuation
-        const stockSnap = await getDocs(query(collection(db, 'mobiles'), where('quantity', '>', 0)));
-        let totalStock = 0;
-        let totalStockValue = 0;
-        stockSnap.forEach(doc => { 
-          const data = doc.data();
-          const q = data.quantity || 1;
+    // 1. Real-time Stock Listener (Mobiles collection)
+    const stockQuery = query(collection(db, 'mobiles'));
+    // 2. Real-time Sales Listener (Sales collection)
+    const salesQuery = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
+
+    let currentMobiles: any[] = [];
+    let currentSales: any[] = [];
+    let mobilesLoaded = false;
+    let salesLoaded = false;
+
+    const recalculateDashboard = () => {
+      const today = new Date();
+      const startOfToday = startOfDay(today);
+      const sevenDaysAgo = startOfDay(subDays(today, 6));
+
+      // Calculate stock stats (only quantity > 0)
+      let totalStock = 0;
+      let totalStockValue = 0;
+      currentMobiles.forEach(m => {
+        const q = Number(m.quantity) || 0;
+        if (q > 0) {
           totalStock += q;
-          totalStockValue += (data.basePrice || 0) * q;
+          totalStockValue += (Number(m.basePrice) || 0) * q;
+        }
+      });
+
+      // Filter active (non-returned) sales
+      let todaySales = 0;
+      let todayProfit = 0;
+
+      // 7-day profit trend buckets
+      const dailyData = Array.from({ length: 7 }).map((_, i) => {
+        const d = subDays(today, 6 - i);
+        return {
+          date: d,
+          name: format(d, 'EEE'),
+          profit: 0
+        };
+      });
+
+      const activities: any[] = [];
+
+      currentSales.forEach(s => {
+        const saleDate = parseDateSafe(s.date || s.createdAt) || new Date();
+        const isReturned = s.status === 'returned';
+
+        // Include in activities list (shows returned tag if returned)
+        activities.push({
+          id: s.id,
+          type: 'sale',
+          desc: isReturned ? `Returned ${s.itemName || 'Mobile'}` : `Sold ${s.itemName || 'Mobile'}`,
+          amount: isReturned ? -(s.sellPrice || 0) : (s.sellPrice || 0),
+          isReturned,
+          date: saleDate,
+          icon: Smartphone,
+          color: isReturned ? 'text-rose-500' : 'text-emerald-500'
         });
 
-        // 2. Fetch today's sales
-        const todaySalesSnap = await getDocs(query(collection(db, 'sales'), where('createdAt', '>=', startOfToday)));
-        let todaySales = 0;
-        let todayProfit = 0;
-        todaySalesSnap.forEach(doc => {
-          const data = doc.data();
-          todaySales += data.sellPrice || 0;
-          todayProfit += data.profit || 0;
-        });
+        // IMPORTANT: Exclude returned sales from revenue and profit!
+        if (!isReturned) {
+          // If sold today
+          if (saleDate >= startOfToday) {
+            todaySales += Number(s.sellPrice) || 0;
+            todayProfit += Number(s.profit) || 0;
+          }
 
-        setStats({
-          netProfit: todayProfit,
-          totalStock,
-          todaySales,
-          totalStockValue,
-        });
+          // If within the last 7 days for the chart
+          if (saleDate >= sevenDaysAgo) {
+            const dayData = dailyData.find(x => isSameDay(x.date, saleDate));
+            if (dayData) {
+              dayData.profit += Number(s.profit) || 0;
+            }
+          }
+        }
+      });
 
-        // 3. Fetch 7-day profit trend
-        const sevenDaysAgo = startOfDay(subDays(today, 6));
-        const weeklySalesSnap = await getDocs(query(collection(db, 'sales'), where('createdAt', '>=', sevenDaysAgo)));
+      setStats({
+        netProfit: todayProfit,
+        totalStock,
+        todaySales,
+        totalStockValue,
+      });
 
-        const dailyData = Array.from({ length: 7 }).map((_, i) => {
-          const d = subDays(today, 6 - i);
-          return {
-            date: d,
-            name: format(d, 'EEE'),
-            profit: 0
-          };
-        });
+      setChartData(dailyData.map(d => ({ name: d.name, profit: d.profit })));
 
-        weeklySalesSnap.forEach(doc => {
-          const data = doc.data();
-          const d = parseDateSafe(data.createdAt) || new Date();
-          const dayData = dailyData.find(x => isSameDay(x.date, d));
-          if (dayData) dayData.profit += (data.profit || 0);
-        });
+      // Sort activities newest first and take top 5
+      activities.sort((a, b) => b.date.getTime() - a.date.getTime());
+      setRecentActivity(activities.slice(0, 5));
 
-        setChartData(dailyData.map(d => ({ name: d.name, profit: d.profit })));
-
-        // 5. Recent Activity
-        const recentSales = await getDocs(query(collection(db, 'sales'), orderBy('createdAt', 'desc'), limit(5)));
-        const activities: any[] = [];
-        recentSales.forEach(doc => {
-          const d = doc.data();
-          activities.push({
-            id: doc.id,
-            type: 'sale',
-            desc: `Sold ${d.itemName || 'Mobile'}`,
-            amount: d.sellPrice || 0,
-            date: parseDateSafe(d.createdAt) || new Date(),
-            icon: Smartphone,
-            color: 'text-emerald-500'
-          });
-        });
-        
-        // Sort and slice combined
-        activities.sort((a, b) => b.date.getTime() - a.date.getTime());
-        setRecentActivity(activities.slice(0, 5));
-
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
+      if (mobilesLoaded && salesLoaded) {
         setLoading(false);
       }
-    }
-    fetchDashboardData();
+    };
+
+    const unsubStock = onSnapshot(stockQuery, (snapshot) => {
+      currentMobiles = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      mobilesLoaded = true;
+      recalculateDashboard();
+    }, (err) => {
+      console.error("Error listening to mobiles stock:", err);
+      mobilesLoaded = true;
+      setLoading(false);
+    });
+
+    const unsubSales = onSnapshot(salesQuery, (snapshot) => {
+      currentSales = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      salesLoaded = true;
+      recalculateDashboard();
+    }, (err) => {
+      console.error("Error listening to sales:", err);
+      salesLoaded = true;
+      setLoading(false);
+    });
+
+    return () => {
+      unsubStock();
+      unsubSales();
+    };
   }, []);
 
   const formatTimeAgo = (date: Date) => {
