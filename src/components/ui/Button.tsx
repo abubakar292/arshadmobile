@@ -31,18 +31,29 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       md: 'px-4 py-2 text-base',
       lg: 'px-6 py-3 text-lg font-semibold',
     };
+    const isDisabled = Boolean(disabled || isLoading);
 
     return (
       <motion.button
         ref={ref}
-        whileHover={!disabled && !isLoading ? { y: -1 } : {}}
-        whileTap={!disabled && !isLoading ? { scale: 0.98 } : {}}
-        disabled={disabled || isLoading}
+        whileHover={!isDisabled ? { y: -1 } : {}}
+        whileTap={!isDisabled ? { scale: 0.98 } : {}}
+        disabled={isDisabled}
+        onClick={(e) => {
+          if (isDisabled) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          if (props.onClick) {
+            props.onClick(e);
+          }
+        }}
         className={cn(
-          'relative inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-forest/20',
+          'relative inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-forest/20 select-none',
           variants[variant],
           sizes[size],
-          (disabled || isLoading) && 'opacity-50 cursor-not-allowed',
+          isDisabled && 'opacity-50 cursor-not-allowed pointer-events-none',
           className
         )}
         {...props}

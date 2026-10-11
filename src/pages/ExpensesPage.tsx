@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Button } from '../components/ui/Button';
@@ -40,6 +40,7 @@ export default function ExpensesPage() {
   const [activeTab, setActiveTab] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const formLoadingRef = useRef(false);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -51,6 +52,8 @@ export default function ExpensesPage() {
   // Edit / Delete State
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const deleteLoadingRef = useRef(false);
 
   useEffect(() => {
     fetchData();
@@ -112,24 +115,26 @@ export default function ExpensesPage() {
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !amount || !category || !date) return;
+    if (!title || !amount || !category || !date || formLoadingRef.current || formLoading) return;
+
+    formLoadingRef.current = true;
     setFormLoading(true);
     try {
       if (expenseToEdit) {
         await updateDoc(doc(db, 'expenses', expenseToEdit.id), {
-          title,
+          title: title.trim(),
           amount: Number(amount),
           category,
           date: new Date(date),
-          notes,
+          notes: notes.trim(),
         });
       } else {
         const newExpense = {
-          title,
+          title: title.trim(),
           amount: Number(amount),
           category,
           date: new Date(date),
-          notes,
+          notes: notes.trim(),
           createdAt: serverTimestamp()
         };
         await addDoc(collection(db, 'expenses'), newExpense);
@@ -142,14 +147,23 @@ export default function ExpensesPage() {
       console.error(error);
     } finally {
       setFormLoading(false);
+      formLoadingRef.current = false;
     }
   };
 
   const handleDelete = async () => {
-    if (expenseToDelete) {
+    if (!expenseToDelete || deleteLoadingRef.current || deleteLoading) return;
+    deleteLoadingRef.current = true;
+    setDeleteLoading(true);
+    try {
       await deleteDoc(doc(db, 'expenses', expenseToDelete));
       setExpenseToDelete(null);
       fetchData();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeleteLoading(false);
+      deleteLoadingRef.current = false;
     }
   };
 
@@ -360,7 +374,7 @@ export default function ExpensesPage() {
                       className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition-all focus:border-forest focus:ring-1 focus:ring-forest/20 resize-none"
                     />
                   </div>
-                  <Button type="submit" className="w-full mt-4" isLoading={formLoading}>
+                  <Button type="submit" className="w-full mt-4" isLoading={formLoading} disabled={formLoading}>
                     {expenseToEdit ? 'Update Expense' : 'Save Expense'}
                   </Button>
                 </form>
@@ -393,8 +407,8 @@ export default function ExpensesPage() {
               <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Expense</h3>
               <p className="text-sm text-gray-500 mb-6">Are you sure you want to delete this expense? This action cannot be undone.</p>
               <div className="flex gap-3">
-                <Button variant="secondary" className="flex-1" onClick={() => setExpenseToDelete(null)}>Cancel</Button>
-                <Button variant="danger" className="flex-1" onClick={handleDelete}>Delete</Button>
+                <Button variant="secondary" className="flex-1" disabled={deleteLoading} onClick={() => setExpenseToDelete(null)}>Cancel</Button>
+                <Button variant="danger" className="flex-1" onClick={handleDelete} isLoading={deleteLoading} disabled={deleteLoading}>Delete</Button>
               </div>
             </motion.div>
           </>

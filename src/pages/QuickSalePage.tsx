@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { collection, doc, serverTimestamp, writeBatch, getDocs, getDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Button } from '../components/ui/Button';
@@ -38,6 +38,7 @@ export default function QuickSalePage() {
   const [activeScanField, setActiveScanField] = useState<'imei1' | 'imei2' | null>(null);
   const [printPromptData, setPrintPromptData] = useState<{isOpen: boolean, billData: any, profit: number}>({ isOpen: false, billData: null, profit: 0 });
   const [loading, setLoading] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [khataCustomers, setKhataCustomers] = useState<any[]>([]);
   const [selectedKhataId, setSelectedKhataId] = useState('');
   const { success, error } = useToast();
@@ -50,6 +51,8 @@ export default function QuickSalePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || isSubmittingRef.current) return;
+
     if (!formData.itemName) {
       error("Item name is required");
       return;
@@ -65,6 +68,7 @@ export default function QuickSalePage() {
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const basePrice = Number(formData.basePrice) || 0;
@@ -175,6 +179,7 @@ export default function QuickSalePage() {
       error(err.message || 'Error processing quick sale');
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -302,7 +307,7 @@ export default function QuickSalePage() {
           </div>
   
 
-          <Button type="submit" size="lg" className="w-full" isLoading={loading}>
+          <Button type="submit" size="lg" className="w-full" isLoading={loading} disabled={loading}>
             Complete Quick Sale
           </Button>
 

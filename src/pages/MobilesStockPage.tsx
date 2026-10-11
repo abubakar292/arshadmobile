@@ -1,5 +1,4 @@
-import React from "react";
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from "react";
 import { collection, getDoc, query, orderBy, onSnapshot, addDoc, doc, serverTimestamp, writeBatch, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Button } from '../components/ui/Button';
@@ -21,11 +20,15 @@ export default function MobilesStockPage() {
   const [multiSelectedKhataId, setMultiSelectedKhataId] = useState('');
   const [multiTotalProfit, setMultiTotalProfit] = useState<number>(0);
   
-  // Single Sell State
+  // Single Sell State & submission guard
   const [singleSellModal, setSingleSellModal] = useState<any>(null);
+  const [isSingleSelling, setIsSingleSelling] = useState(false);
+  const isSingleSellingRef = useRef(false);
   
-  // Multi Sell State
+  // Multi Sell State & submission guard
   const [multiSellModalOpen, setMultiSellModalOpen] = useState(false);
+  const [isMultiSelling, setIsMultiSelling] = useState(false);
+  const isMultiSellingRef = useRef(false);
   const [multiCustomerName, setMultiCustomerName] = useState('');
   const [multiCustomerPhone, setMultiCustomerPhone] = useState('');
   const [multiPaymentMethod, setMultiPaymentMethod] = useState('Cash');
@@ -84,11 +87,14 @@ export default function MobilesStockPage() {
 
   const handleSingleSell = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!singleSellModal) return;
+    if (!singleSellModal || isSingleSellingRef.current || isSingleSelling) return;
 
     if (singleSellModal.paymentMethod === 'Udhar' && !singleSelectedKhataId) {
       return error("Please select a Khata customer for Udhar payment");
     }
+
+    isSingleSellingRef.current = true;
+    setIsSingleSelling(true);
 
     try {
       const sellPrice = Number(singleSellModal.sellPrice);
@@ -193,6 +199,9 @@ export default function MobilesStockPage() {
       
     } catch (err: any) {
       error(err.message || 'Error processing sale');
+    } finally {
+      setIsSingleSelling(false);
+      isSingleSellingRef.current = false;
     }
   };
 
@@ -235,6 +244,8 @@ export default function MobilesStockPage() {
   };
 
   const handleMultiSell = async () => {
+    if (isMultiSellingRef.current || isMultiSelling) return;
+
     // Validate
     if (!multiCustomerName) return error("Customer name is required");
     const validItems = multiItems.filter(i => i.mobileId);
@@ -243,6 +254,9 @@ export default function MobilesStockPage() {
     if (multiPaymentMethod === 'Udhar' && !multiSelectedKhataId) {
       return error("Please select a Khata customer for Udhar payment");
     }
+
+    isMultiSellingRef.current = true;
+    setIsMultiSelling(true);
 
     try {
       const batch = writeBatch(db);
@@ -367,6 +381,9 @@ export default function MobilesStockPage() {
     
     } catch (err: any) {
       error(err.message || 'Error processing sale');
+    } finally {
+      setIsMultiSelling(false);
+      isMultiSellingRef.current = false;
     }
   };
 
@@ -565,7 +582,12 @@ export default function MobilesStockPage() {
   
 
             <div className="pt-4">
-              <Button type="submit" className="w-full bg-gradient-to-r from-accent-emerald to-green-500 hover:from-accent-emerald hover:to-green-600 text-white border-0">
+              <Button 
+                type="submit" 
+                isLoading={isSingleSelling}
+                disabled={isSingleSelling}
+                className="w-full bg-gradient-to-r from-accent-emerald to-green-500 hover:from-accent-emerald hover:to-green-600 text-white border-0"
+              >
                 Complete Sale
               </Button>
             </div>
@@ -734,7 +756,12 @@ export default function MobilesStockPage() {
         </div>
   
 
-        <Button onClick={handleMultiSell} className="w-full">
+        <Button 
+          onClick={handleMultiSell} 
+          isLoading={isMultiSelling} 
+          disabled={isMultiSelling} 
+          className="w-full"
+        >
           Complete Sale & Generate Bill
         </Button>
       </Modal>

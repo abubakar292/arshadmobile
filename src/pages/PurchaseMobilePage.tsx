@@ -1,5 +1,4 @@
-import React from "react";
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from "react";
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Button } from '../components/ui/Button';
@@ -43,6 +42,8 @@ export default function PurchaseMobilePage() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   
   // Scanner state
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -137,6 +138,8 @@ export default function PurchaseMobilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current || isSubmitting) return;
+
     try {
       const resolvedCompany = formData.company === 'Other'
         ? (formData.customCompany.trim() || 'Other')
@@ -145,6 +148,9 @@ export default function PurchaseMobilePage() {
       if (!formData.modelName.trim()) {
         return error('Please enter model name');
       }
+
+      isSubmittingRef.current = true;
+      setIsSubmitting(true);
 
       const data = {
         modelName: formData.modelName.trim(),
@@ -174,6 +180,9 @@ export default function PurchaseMobilePage() {
       setIsModalOpen(false);
     } catch (err: any) {
       error(err.message || 'Error saving mobile');
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -560,10 +569,10 @@ export default function PurchaseMobilePage() {
           </div>
 
           <div className="pt-4 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>
+            <Button type="button" variant="ghost" disabled={isSubmitting} onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting}>
               {editingId ? 'Save Changes' : 'Add Mobile'}
             </Button>
           </div>

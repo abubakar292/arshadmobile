@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, writeBatch, getDoc, getDocs, where, increment, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Button } from '../components/ui/Button';
@@ -76,8 +76,10 @@ export default function MobileSalesPage() {
   // Expandable Advanced Filters Panel
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Return modal state
+  // Return modal state & submission guard
   const [saleToReturn, setSaleToReturn] = useState<any | null>(null);
+  const [isReturning, setIsReturning] = useState(false);
+  const isReturningRef = useRef(false);
 
   // In-app bill preview state
   const [previewSaleBill, setPreviewSaleBill] = useState<any | null>(null);
@@ -201,7 +203,10 @@ export default function MobileSalesPage() {
   const returnedCount = filteredSales.filter(s => s.status === 'returned').length;
 
   const handleReturn = async () => {
-    if (!saleToReturn) return;
+    if (!saleToReturn || isReturningRef.current || isReturning) return;
+    isReturningRef.current = true;
+    setIsReturning(true);
+
     try {
       const batch = writeBatch(db);
       
@@ -283,6 +288,8 @@ export default function MobileSalesPage() {
     } catch (err: any) {
       error(err.message || 'Error returning sale');
     } finally {
+      setIsReturning(false);
+      isReturningRef.current = false;
       setSaleToReturn(null);
     }
   };
@@ -803,10 +810,10 @@ export default function MobileSalesPage() {
                 )}
               </div>
               <div className="flex gap-3">
-                <Button variant="secondary" className="flex-1" onClick={() => setSaleToReturn(null)}>
+                <Button variant="secondary" className="flex-1" disabled={isReturning} onClick={() => setSaleToReturn(null)}>
                   Cancel
                 </Button>
-                <Button variant="danger" className="flex-1" onClick={handleReturn}>
+                <Button variant="danger" className="flex-1" isLoading={isReturning} disabled={isReturning} onClick={handleReturn}>
                   Confirm Return
                 </Button>
               </div>

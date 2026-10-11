@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, orderBy, where, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +24,8 @@ export default function KhataPage() {
   const [phone, setPhone] = useState('');
   const [type, setType] = useState<'receivable' | 'payable'>('receivable');
   const [notes, setNotes] = useState('');
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  const isAddingCustomerRef = useRef(false);
 
   // Edit Customer State
   const [customerToEdit, setCustomerToEdit] = useState<any>(null);
@@ -31,11 +33,13 @@ export default function KhataPage() {
   const [editPhone, setEditPhone] = useState('');
   const [editType, setEditType] = useState<'receivable' | 'payable'>('receivable');
   const [editNotes, setEditNotes] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const isSavingEditRef = useRef(false);
 
   // Delete Customer State
   const [customerToDelete, setCustomerToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const isDeletingRef = useRef(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -61,13 +65,16 @@ export default function KhataPage() {
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !type) return;
+    if (!name || !type || isAddingCustomerRef.current || isAddingCustomer) return;
+    
+    isAddingCustomerRef.current = true;
+    setIsAddingCustomer(true);
     try {
       await addDoc(collection(db, 'khata'), {
-        name,
-        phone,
+        name: name.trim(),
+        phone: phone.trim(),
         type,
-        notes,
+        notes: notes.trim(),
         totalBalance: 0,
         createdAt: serverTimestamp()
       });
@@ -78,6 +85,9 @@ export default function KhataPage() {
     } catch (err: any) {
       console.error(err);
       error(err.message || 'Error adding customer');
+    } finally {
+      setIsAddingCustomer(false);
+      isAddingCustomerRef.current = false;
     }
   };
 
@@ -92,16 +102,17 @@ export default function KhataPage() {
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerToEdit || !editName) return;
+    if (!customerToEdit || !editName || isSavingEditRef.current || isSavingEdit) return;
 
+    isSavingEditRef.current = true;
     setIsSavingEdit(true);
     try {
       const custRef = doc(db, 'khata', customerToEdit.id);
       await updateDoc(custRef, {
-        name: editName,
-        phone: editPhone,
+        name: editName.trim(),
+        phone: editPhone.trim(),
         type: editType,
-        notes: editNotes,
+        notes: editNotes.trim(),
         updatedAt: serverTimestamp()
       });
 
@@ -112,7 +123,7 @@ export default function KhataPage() {
         if (!txSnap.empty) {
           const batch = writeBatch(db);
           txSnap.forEach(tDoc => {
-            batch.update(doc(db, 'khataTransactions', tDoc.id), { customerName: editName });
+            batch.update(doc(db, 'khataTransactions', tDoc.id), { customerName: editName.trim() });
           });
           await batch.commit();
         }
@@ -128,6 +139,7 @@ export default function KhataPage() {
       error(err.message || 'Error updating customer');
     } finally {
       setIsSavingEdit(false);
+      isSavingEditRef.current = false;
     }
   };
 
@@ -137,7 +149,8 @@ export default function KhataPage() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!customerToDelete) return;
+    if (!customerToDelete || isDeletingRef.current || isDeleting) return;
+    isDeletingRef.current = true;
     setIsDeleting(true);
     try {
       // 1. Delete all transactions associated with this customer
@@ -162,6 +175,7 @@ export default function KhataPage() {
       error(err.message || 'Error deleting customer');
     } finally {
       setIsDeleting(false);
+      isDeletingRef.current = false;
     }
   };
 
@@ -377,7 +391,7 @@ export default function KhataPage() {
                       className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-forest resize-none"
                     />
                   </div>
-                  <Button type="submit" className="w-full">Save Customer</Button>
+                  <Button type="submit" className="w-full" isLoading={isAddingCustomer} disabled={isAddingCustomer}>Save Customer</Button>
                 </form>
               </div>
             </motion.div>
@@ -412,11 +426,11 @@ export default function KhataPage() {
               />
             </div>
             <div className="flex gap-3 pt-2">
-              <Button type="button" variant="secondary" className="flex-1" onClick={() => setCustomerToEdit(null)}>
+              <Button type="button" variant="secondary" className="flex-1" disabled={isSavingEdit} onClick={() => setCustomerToEdit(null)}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" className="flex-1" disabled={isSavingEdit}>
-                {isSavingEdit ? 'Saving...' : 'Save Changes'}
+              <Button type="submit" variant="primary" className="flex-1" isLoading={isSavingEdit} disabled={isSavingEdit}>
+                Save Changes
               </Button>
             </div>
           </form>
@@ -440,8 +454,8 @@ export default function KhataPage() {
               <Button type="button" variant="secondary" className="flex-1" onClick={() => setCustomerToDelete(null)} disabled={isDeleting}>
                 Cancel
               </Button>
-              <Button type="button" variant="danger" className="flex-1" onClick={handleConfirmDelete} disabled={isDeleting}>
-                {isDeleting ? 'Deleting...' : 'Delete'}
+              <Button type="button" variant="danger" className="flex-1" onClick={handleConfirmDelete} isLoading={isDeleting} disabled={isDeleting}>
+                Delete
               </Button>
             </div>
           </div>

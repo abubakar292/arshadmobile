@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, getDocs, addDoc, doc, getDoc, updateDoc, deleteDoc, serverTimestamp, where, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -24,12 +24,15 @@ export default function CustomerLedgerPage() {
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneToUpdate, setPhoneToUpdate] = useState('');
   const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const isSavingPhoneRef = useRef(false);
   
   // Modal State for New Transaction
   const [txModalType, setTxModalType] = useState<'udhar' | 'wasooli' | null>(null);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [isAddingTx, setIsAddingTx] = useState(false);
+  const isAddingTxRef = useRef(false);
 
   // Edit Transaction State
   const [txToEdit, setTxToEdit] = useState<any>(null);
@@ -38,10 +41,12 @@ export default function CustomerLedgerPage() {
   const [editTxDescription, setEditTxDescription] = useState('');
   const [editTxDate, setEditTxDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const isSavingEditRef = useRef(false);
 
   // Delete Transaction State
   const [txToDelete, setTxToDelete] = useState<any>(null);
   const [isDeletingTx, setIsDeletingTx] = useState(false);
+  const isDeletingTxRef = useRef(false);
 
   useEffect(() => {
     if (id) fetchLedgerData();
@@ -79,8 +84,10 @@ export default function CustomerLedgerPage() {
 
   const handleTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !amount || !txModalType || !customer) return;
+    if (!id || !amount || !txModalType || !customer || isAddingTxRef.current || isAddingTx) return;
     
+    isAddingTxRef.current = true;
+    setIsAddingTx(true);
     try {
       const amt = Number(amount);
       const currentBalance = customer.totalBalance || 0;
@@ -120,6 +127,9 @@ export default function CustomerLedgerPage() {
     } catch (err: any) {
       console.error(err);
       error(err.message || 'Error saving transaction');
+    } finally {
+      setIsAddingTx(false);
+      isAddingTxRef.current = false;
     }
   };
 
@@ -135,8 +145,9 @@ export default function CustomerLedgerPage() {
   // Save Edited Transaction & Recalculate Balance
   const handleSaveEditTx = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !customer || !txToEdit || !editTxAmount) return;
+    if (!id || !customer || !txToEdit || !editTxAmount || isSavingEditRef.current || isSavingEdit) return;
 
+    isSavingEditRef.current = true;
     setIsSavingEdit(true);
     try {
       const newAmount = Number(editTxAmount);
@@ -175,6 +186,7 @@ export default function CustomerLedgerPage() {
       error(err.message || 'Error updating transaction');
     } finally {
       setIsSavingEdit(false);
+      isSavingEditRef.current = false;
     }
   };
 
@@ -185,8 +197,9 @@ export default function CustomerLedgerPage() {
 
   // Delete Transaction & Revert its impact on customer balance
   const handleConfirmDeleteTx = async () => {
-    if (!id || !customer || !txToDelete) return;
+    if (!id || !customer || !txToDelete || isDeletingTxRef.current || isDeletingTx) return;
 
+    isDeletingTxRef.current = true;
     setIsDeletingTx(true);
     try {
       const txAmt = Number(txToDelete.amount) || 0;
@@ -212,12 +225,14 @@ export default function CustomerLedgerPage() {
       error(err.message || 'Error deleting transaction');
     } finally {
       setIsDeletingTx(false);
+      isDeletingTxRef.current = false;
     }
   };
 
   const handleSavePhone = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !customer) return;
+    if (!id || !customer || isSavingPhoneRef.current || isSavingPhone) return;
+    isSavingPhoneRef.current = true;
     setIsSavingPhone(true);
     try {
       await updateDoc(doc(db, 'khata', id), {
@@ -231,6 +246,7 @@ export default function CustomerLedgerPage() {
       error(err.message || 'Error updating phone');
     } finally {
       setIsSavingPhone(false);
+      isSavingPhoneRef.current = false;
     }
   };
 
@@ -512,7 +528,7 @@ export default function CustomerLedgerPage() {
                       className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-forest resize-none"
                     />
                   </div>
-                  <Button type="submit" className="w-full" variant={txModalType === 'udhar' ? 'danger' : 'primary'}>
+                  <Button type="submit" className="w-full" variant={txModalType === 'udhar' ? 'danger' : 'primary'} isLoading={isAddingTx} disabled={isAddingTx}>
                     Save Transaction
                   </Button>
                 </form>
@@ -549,11 +565,11 @@ export default function CustomerLedgerPage() {
               />
             </div>
             <div className="flex gap-3 pt-2">
-              <Button type="button" variant="secondary" className="flex-1" onClick={() => setTxToEdit(null)}>
+              <Button type="button" variant="secondary" className="flex-1" disabled={isSavingEdit} onClick={() => setTxToEdit(null)}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" className="flex-1" disabled={isSavingEdit}>
-                {isSavingEdit ? 'Saving...' : 'Save Changes'}
+              <Button type="submit" variant="primary" className="flex-1" isLoading={isSavingEdit} disabled={isSavingEdit}>
+                Save Changes
               </Button>
             </div>
           </form>
@@ -577,8 +593,8 @@ export default function CustomerLedgerPage() {
               <Button type="button" variant="secondary" className="flex-1" onClick={() => setTxToDelete(null)} disabled={isDeletingTx}>
                 Cancel
               </Button>
-              <Button type="button" variant="danger" className="flex-1" onClick={handleConfirmDeleteTx} disabled={isDeletingTx}>
-                {isDeletingTx ? 'Deleting...' : 'Delete'}
+              <Button type="button" variant="danger" className="flex-1" onClick={handleConfirmDeleteTx} isLoading={isDeletingTx} disabled={isDeletingTx}>
+                Delete
               </Button>
             </div>
           </div>
@@ -613,7 +629,7 @@ export default function CustomerLedgerPage() {
             <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsEditingPhone(false)} disabled={isSavingPhone}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" className="flex-1" isLoading={isSavingPhone}>
+            <Button type="submit" variant="primary" className="flex-1" isLoading={isSavingPhone} disabled={isSavingPhone}>
               Save Number
             </Button>
           </div>
