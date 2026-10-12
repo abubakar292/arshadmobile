@@ -4,20 +4,24 @@ import { User, onAuthStateChanged, signInWithEmailAndPassword,
          signInWithPopup, updateProfile } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { ShopProfile, getShopProfile, claimLegacyDataForUser, updateShopProfile } from '../utils/multiTenantService';
 
 interface AuthContextType {
   user: User | null;
+  shopProfile: ShopProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signInGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  updateProfileData: (data: Partial<ShopProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [shopProfile, setShopProfile] = useState<ShopProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function ensureUserDoc(firebaseUser: User, name?: string) {
@@ -28,23 +32,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: firebaseUser.uid,
         email: firebaseUser.email,
         name: name || firebaseUser.displayName || '',
-        role: 'admin',  // Always admin
+        role: 'admin',
         createdAt: serverTimestamp(),
       });
     }
   }
 
+  const loadUserProfile = async (firebaseUser: User, customName?: string) => {
+    try {
+      await ensureUserDoc(firebaseUser, customName);
+      const profile = await getShopProfile(
+        firebaseUser.uid, 
+        firebaseUser.email || '', 
+        customName || firebaseUser.displayName || ''
+      );
+      setShopProfile(profile);
+
+      // Auto-claim unassigned legacy data for primary admin
+      if (firebaseUser.email === 'threadsandtailsshop@gmail.com') {
+        claimLegacyDataForUser(firebaseUser.uid).catch(err => {
+          console.warn("Legacy data claim completed with notices:", err);
+        });
+      }
+    } catch (err) {
+      console.error("Error loading user shop profile:", err);
+    }
+  };
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        try {
-          await ensureUserDoc(firebaseUser);
-        } catch (error) {
-          console.error("Error ensuring user doc:", error);
-        }
         setUser(firebaseUser);
+        await loadUserProfile(firebaseUser);
       } else {
         setUser(null);
+        setShopProfile(null);
       }
       setLoading(false);
     });
@@ -52,25 +74,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    if (cred.user) {
+      await loadUserProfile(cred.user);
+    }
   };
 
   const signUp = async (name: string, email: string, password: string) => {
     const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(firebaseUser, { displayName: name });
-    await ensureUserDoc(firebaseUser, name);
+    await loadUserProfile(firebaseUser, name);
   };
 
   const signInGoogle = async () => {
     const provider = new GoogleAuthProvider();
     const { user: firebaseUser } = await signInWithPopup(auth, provider);
-    await ensureUserDoc(firebaseUser);
+    await loadUserProfile(firebaseUser);
   };
 
   const logout = () => signOut(auth);
 
+  const updateProfileData = async (data: Partial<ShopProfile>) => {
+    if (!user) return;
+    await updateShopProfile(user.uid, data);
+    setShopProfile(prev => prev ? { ...prev, ...data } : null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInGoogle, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      shopProfile, 
+      loading, 
+      signIn, 
+      signUp, 
+      signInGoogle, 
+      logout,
+      updateProfileData
+    }}>
       {children}
     </AuthContext.Provider>
   );

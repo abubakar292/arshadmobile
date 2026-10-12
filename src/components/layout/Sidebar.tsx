@@ -5,6 +5,7 @@ import {
   CreditCard, BookOpen, Package, Settings, X, Download
 } from 'lucide-react';
 import { SHOP_CONFIG } from '../../config/shopConfig';
+import { useAuth } from '../../contexts/AuthContext';
 
 const sections = [
   {
@@ -53,6 +54,7 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const location = useLocation();
+  const { shopProfile } = useAuth();
 
   return (
     <aside className="h-full bg-forest text-white flex flex-col overflow-hidden">
@@ -60,14 +62,14 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <div className="pt-[env(safe-area-inset-top,0px)] min-h-[calc(4rem+env(safe-area-inset-top,0px))] flex items-center justify-between px-4 sm:px-5 border-b border-white/10 shrink-0 bg-obsidian-dark">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-white p-0.5 border border-amber-500/30 flex items-center justify-center shadow-md shrink-0">
-            <img src={SHOP_CONFIG.logoUrl} alt={SHOP_CONFIG.shortName} className="w-full h-full object-contain" />
+            <img src={SHOP_CONFIG.logoUrl} alt={shopProfile?.shortName || SHOP_CONFIG.shortName} className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col min-w-0">
             <span className="font-extrabold text-white text-sm tracking-tight truncate leading-tight">
-              {SHOP_CONFIG.name}
+              {shopProfile?.shopName || SHOP_CONFIG.name}
             </span>
             <span className="text-[10px] text-gold font-bold tracking-wider uppercase">
-              {SHOP_CONFIG.subTitle}
+              {shopProfile?.subTitle || SHOP_CONFIG.subTitle}
             </span>
           </div>
         </div>

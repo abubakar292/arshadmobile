@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -8,6 +8,7 @@ import { Modal } from '../components/ui/Modal';
 import { SearchBar } from '../components/ui/SearchBar';
 import { Badge } from '../components/ui/Badge';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Edit, Trash2, Smartphone, QrCode } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
@@ -35,6 +36,7 @@ const FILTER_COMPANIES = [
 ];
 
 export default function PurchaseMobilePage() {
+  const { user, shopProfile } = useAuth();
   const [mobiles, setMobiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -75,13 +77,20 @@ export default function PurchaseMobilePage() {
   };
 
   useEffect(() => {
-    const q = query(collection(db, 'mobiles'), orderBy('createdAt', 'desc'));
+    if (!user) return;
+    const q = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
-      setMobiles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      list.sort((a: any, b: any) => {
+        const da = a.createdAt?.toMillis ? a.createdAt.toMillis() : (parseDateSafe(a.createdAt || a.purchaseDate)?.getTime() || 0);
+        const db = b.createdAt?.toMillis ? b.createdAt.toMillis() : (parseDateSafe(b.createdAt || b.purchaseDate)?.getTime() || 0);
+        return db - da;
+      });
+      setMobiles(list);
       setLoading(false);
     });
     return unsub;
-  }, []);
+  }, [user]);
 
   const filteredMobiles = mobiles.filter(m => {
     const comp = m.company || m.brand || '';
@@ -153,6 +162,7 @@ export default function PurchaseMobilePage() {
       setIsSubmitting(true);
 
       const data = {
+        userId: user?.uid,
         modelName: formData.modelName.trim(),
         company: resolvedCompany,
         ramRom: formData.ramRom.trim(),

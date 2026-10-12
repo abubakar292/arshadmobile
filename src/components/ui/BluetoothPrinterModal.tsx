@@ -23,6 +23,7 @@ import {
   getRawBtDeepLink 
 } from '../../utils/bluetoothPrinter';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { SHOP_CONFIG } from '../../config/shopConfig';
 
 interface BluetoothPrinterModalProps {
@@ -36,6 +37,7 @@ export function BluetoothPrinterModal({
   onClose,
   billData,
 }: BluetoothPrinterModalProps) {
+  const { shopProfile } = useAuth();
   const { success, error: toastError } = useToast();
   const [isPrinting, setIsPrinting] = useState(false);
   const [printStatus, setPrintStatus] = useState<string>('');
@@ -43,9 +45,10 @@ export function BluetoothPrinterModal({
 
   if (!isOpen || !billData) return null;
 
+  const currentShopName = shopProfile?.shopName || SHOP_CONFIG.name;
   const hasWebBluetooth = isBluetoothSupported();
   const isIos = isIosDevice();
-  const plainReceipt = generatePlainTextReceipt(billData, SHOP_CONFIG.name);
+  const plainReceipt = generatePlainTextReceipt(billData, currentShopName);
 
   // 1-Click Direct Web Bluetooth Print
   const handleDirectBluetoothPrint = async () => {
@@ -57,7 +60,7 @@ export function BluetoothPrinterModal({
 
       setPrintStatus(`Connected to ${deviceObj.device.name || 'Printer'}! Generating ESC/POS receipt...`);
 
-      const receiptBytes = generateEscPosReceipt(billData, SHOP_CONFIG.name);
+      const receiptBytes = generateEscPosReceipt(billData, currentShopName);
 
       setPrintStatus('Sending receipt to thermal printer...');
       await printToBluetoothDevice(deviceObj, receiptBytes);

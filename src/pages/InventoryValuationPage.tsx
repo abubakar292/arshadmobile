@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { Package, Download, Printer, Search, Smartphone, Layers, TrendingUp, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { SearchBar } from '../components/ui/SearchBar';
@@ -22,6 +23,7 @@ interface MobileStockItem {
 }
 
 export default function InventoryValuationPage() {
+  const { user, shopProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'units' | 'value'>('units');
   const [stock, setStock] = useState<MobileStockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,13 +33,16 @@ export default function InventoryValuationPage() {
   const [previewHtml, setPreviewHtml] = useState('');
 
   useEffect(() => {
-    fetchStock();
-  }, []);
+    if (user) {
+      fetchStock();
+    }
+  }, [user]);
 
   const fetchStock = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'mobiles')));
+      const snap = await getDocs(query(collection(db, 'mobiles'), where('userId', '==', user.uid)));
       const items: MobileStockItem[] = [];
       snap.forEach(docSnap => {
         const data = docSnap.data();
@@ -101,15 +106,20 @@ export default function InventoryValuationPage() {
     const dateStr = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
+    const currentShopName = shopProfile?.shopName || SHOP_CONFIG.name;
+    const currentShortName = shopProfile?.shortName || SHOP_CONFIG.shortName;
+    const currentPhone = shopProfile?.phone || SHOP_CONFIG.phone;
+    const currentSubTitle = shopProfile?.subTitle || SHOP_CONFIG.subTitle;
+
     return `
       <div style="font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: #0f172a; padding: 24px; background: #ffffff; max-width: 900px; margin: 0 auto;">
         <!-- Header -->
         <div style="text-align: center; margin-bottom: 24px; background: #12141D; color: #ffffff; padding: 24px; border-radius: 12px; border-bottom: 4px solid #F59E0B;">
           <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 1px; color: #ffffff;">
-            ${SHOP_CONFIG.name.toUpperCase()} (${SHOP_CONFIG.shortName})
+            ${currentShopName.toUpperCase()} (${currentShortName})
           </h1>
           <p style="margin: 6px 0 0 0; color: #F59E0B; font-weight: 700; font-size: 13px; letter-spacing: 2px; text-transform: uppercase;">
-            ${SHOP_CONFIG.subTitle.toUpperCase()} • TEL: ${SHOP_CONFIG.phone}
+            ${currentSubTitle.toUpperCase()} • TEL: ${currentPhone}
           </p>
           <div style="margin-top: 10px; display: inline-block; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); padding: 4px 16px; border-radius: 20px;">
             <span style="font-size: 13px; font-weight: 600; color: #FBBF24;">INVENTORY VALUATION & AUDIT REPORT</span>

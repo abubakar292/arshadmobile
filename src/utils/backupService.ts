@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc, writeBatch, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { SHOP_CONFIG } from '../config/shopConfig';
 
@@ -6,6 +6,7 @@ export interface ShopBackupData {
   version: string;
   shopName: string;
   shopShortName: string;
+  userId?: string;
   createdAt: string;
   summary: {
     mobilesCount: number;
@@ -58,16 +59,23 @@ export function setDriveWebhookUrl(url: string): void {
 
 /**
  * Exports all shop data from Firestore into a structured JSON backup object
- * and automatically saves the latest master snapshot to Firestore as a safety net
+ * strictly scoped to the authenticated user.
  */
-export async function createFullShopBackup(): Promise<ShopBackupData> {
+export async function createFullShopBackup(userId?: string): Promise<ShopBackupData> {
+  const getColDocs = (colName: string) => {
+    if (userId) {
+      return getDocs(query(collection(db, colName), where('userId', '==', userId)));
+    }
+    return getDocs(collection(db, colName));
+  };
+
   const [mobilesSnap, salesSnap, billsSnap, khataSnap, txSnap, expensesSnap] = await Promise.all([
-    getDocs(collection(db, 'mobiles')),
-    getDocs(collection(db, 'sales')),
-    getDocs(collection(db, 'bills')),
-    getDocs(collection(db, 'khata')),
-    getDocs(collection(db, 'khataTransactions')),
-    getDocs(collection(db, 'expenses')),
+    getColDocs('mobiles'),
+    getColDocs('sales'),
+    getColDocs('bills'),
+    getColDocs('khata'),
+    getColDocs('khataTransactions'),
+    getColDocs('expenses'),
   ]);
 
   const mobiles = mobilesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -81,6 +89,7 @@ export async function createFullShopBackup(): Promise<ShopBackupData> {
     version: '2.0.0',
     shopName: SHOP_CONFIG.name,
     shopShortName: SHOP_CONFIG.shortName,
+    userId,
     createdAt: new Date().toISOString(),
     summary: {
       mobilesCount: mobiles.length,
@@ -101,10 +110,12 @@ export async function createFullShopBackup(): Promise<ShopBackupData> {
     },
   };
 
-  // 1. Always store the master latest snapshot in Firestore
+  // 1. Always store the master latest snapshot in Firestore under user-scoped doc
   try {
-    await setDoc(doc(db, 'shopBackups', 'latest_ArshadMobileBackup'), {
+    const backupDocRef = userId ? doc(db, 'backups', userId) : doc(db, 'backups', 'latest_ArshadMobileBackup');
+    await setDoc(backupDocRef, {
       ...backup,
+      userId,
       updatedAt: backup.createdAt,
     });
   } catch (err) {
@@ -160,11 +171,12 @@ export function getLastBackupTime(): string | null {
 }
 
 /**
- * Retrieves the latest cloud backup stored in Firestore
+ * Retrieves the latest cloud backup stored in Firestore for the given user
  */
-export async function getLatestCloudBackup(): Promise<ShopBackupData | null> {
+export async function getLatestCloudBackup(userId?: string): Promise<ShopBackupData | null> {
   try {
-    const docSnap = await getDoc(doc(db, 'shopBackups', 'latest_ArshadMobileBackup'));
+    const backupDocRef = userId ? doc(db, 'backups', userId) : doc(db, 'backups', 'latest_ArshadMobileBackup');
+    const docSnap = await getDoc(backupDocRef);
     if (docSnap.exists()) {
       return docSnap.data() as ShopBackupData;
     }
@@ -207,9 +219,10 @@ function sanitizeDocForRestore(data: any): any {
 }
 
 /**
- * Restores full shop data into Firestore from a backup data object
+ * Restores full shop data into Firestore from a backup data object,
+ * ensuring all restored documents belong strictly to the authenticated user.
  */
-export async function restoreShopBackup(backup: ShopBackupData): Promise<RestoreResult> {
+export async function restoreShopBackup(backup: ShopBackupData, userId?: string): Promise<RestoreResult> {
   if (!backup || (!backup.data && !backup.summary)) {
     throw new Error('Invalid backup file format. Missing data or summary.');
   }
@@ -231,7 +244,8 @@ export async function restoreShopBackup(backup: ShopBackupData): Promise<Restore
       for (const item of chunk) {
         const docId = String(item.id || doc(collection(db, colName)).id);
         const sanitized = sanitizeDocForRestore(item);
-        batch.set(doc(db, colName, docId), sanitized, { merge: true });
+        const docData = userId ? { ...sanitized, userId } : sanitized;
+        batch.set(doc(db, colName, docId), docData, { merge: true });
       }
       await batch.commit();
     }

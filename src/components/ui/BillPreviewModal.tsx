@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Printer, Share2, X, Bluetooth, Smartphone } from 'lucide-react';
 import { Button } from './Button';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { SHOP_CONFIG } from '../../config/shopConfig';
 import { BluetoothPrinterModal } from './BluetoothPrinterModal';
 
@@ -25,6 +26,7 @@ export function BillPreviewModal({
   billData,
   onShareWhatsApp
 }: BillPreviewModalProps) {
+  const { shopProfile } = useAuth();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const { success, error } = useToast();
   const [showBluetoothModal, setShowBluetoothModal] = useState(false);
@@ -50,11 +52,12 @@ export function BillPreviewModal({
       onShareWhatsApp();
       return;
     }
+    const currentShop = shopProfile?.shopName || SHOP_CONFIG.name;
     if (navigator.share) {
       try {
         await navigator.share({
           title: title || 'Sales Receipt',
-          text: `Sales Receipt #${billNumber || ''} from ${SHOP_CONFIG.name}`,
+          text: `Sales Receipt #${billNumber || ''} from ${currentShop}`,
           url: window.location.href,
         });
         success('Shared successfully');

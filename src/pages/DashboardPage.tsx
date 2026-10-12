@@ -12,6 +12,7 @@ import { db } from '../lib/firebase';
 import { format, subDays, startOfDay, isSameDay } from 'date-fns';
 import { parseDateSafe } from '../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 function AnimatedCounter({ value, prefix = '', suffix = '' }: { value: number, prefix?: string, suffix?: string }) {
   const [count, setCount] = useState(0);
@@ -40,6 +41,7 @@ function AnimatedCounter({ value, prefix = '', suffix = '' }: { value: number, p
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { user, shopProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     netProfit: 0,
@@ -51,10 +53,12 @@ export default function DashboardPage() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
-    // 1. Real-time Stock Listener (Mobiles collection)
-    const stockQuery = query(collection(db, 'mobiles'));
-    // 2. Real-time Sales Listener (Sales collection)
-    const salesQuery = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
+    if (!user) return;
+
+    // 1. Real-time Stock Listener (Mobiles collection scoped to user)
+    const stockQuery = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
+    // 2. Real-time Sales Listener (Sales collection scoped to user)
+    const salesQuery = query(collection(db, 'sales'), where('userId', '==', user.uid));
 
     let currentMobiles: any[] = [];
     let currentSales: any[] = [];
@@ -169,7 +173,7 @@ export default function DashboardPage() {
       unsubStock();
       unsubSales();
     };
-  }, []);
+  }, [user]);
 
   const formatTimeAgo = (date: Date) => {
     const diff = Math.floor((new Date().getTime() - date.getTime()) / 60000);
@@ -187,7 +191,9 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Overview</h1>
-          <p className="text-sm text-gray-500 mt-1">Here's what's happening in your shop today.</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {shopProfile?.shopName ? `${shopProfile.shopName} — ` : ''}Here's what's happening in your shop today.
+          </p>
         </div>
       </div>
 

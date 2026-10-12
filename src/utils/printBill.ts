@@ -12,9 +12,15 @@ export function generateBillNumber(sequence?: number): string {
   return `AMZ-${year}-${randomPart}`;
 }
 
-export function getBillHtml(billData: any): string {
+export function getBillHtml(billData: any, shopInfo?: any): string {
   const isMultiple = billData.items && billData.items.length > 0;
   
+  const currentShopName = shopInfo?.shopName || SHOP_CONFIG.name;
+  const currentShortName = shopInfo?.shortName || SHOP_CONFIG.shortName;
+  const currentSubTitle = shopInfo?.subTitle || SHOP_CONFIG.subTitle;
+  const currentAddress = shopInfo?.address || SHOP_CONFIG.address;
+  const currentPhone = shopInfo?.phone || SHOP_CONFIG.phone;
+
   const itemsHtml = isMultiple 
     ? billData.items.map((item: any, i: number) => `
       <tr>
@@ -88,10 +94,10 @@ export function getBillHtml(billData: any): string {
       <div class="bill-container">
         <div class="header">
           <div class="header-inner">
-            <img src="/logo.svg" alt={SHOP_CONFIG.shortName} class="header-logo" />
+            <img src="/logo.svg" alt="${currentShortName}" class="header-logo" />
             <div>
-              <h1 style="margin:0; font-size: 22px; font-weight: 800; letter-spacing: 1px;">${SHOP_CONFIG.name.toUpperCase()}</h1>
-              <p style="margin:4px 0 0 0; color: #F59E0B; font-weight: 700; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;">${SHOP_CONFIG.subTitle.toUpperCase()} • ${SHOP_CONFIG.shortName}</p>
+              <h1 style="margin:0; font-size: 22px; font-weight: 800; letter-spacing: 1px;">${currentShopName.toUpperCase()}</h1>
+              <p style="margin:4px 0 0 0; color: #F59E0B; font-weight: 700; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;">${currentSubTitle.toUpperCase()} • ${currentShortName}</p>
             </div>
           </div>
         </div>
@@ -131,7 +137,7 @@ export function getBillHtml(billData: any): string {
         </div>
         <div class="footer">
           Thank you for your business! Visit Again 😊<br>
-          <strong>${SHOP_CONFIG.name}</strong> • ${SHOP_CONFIG.address}
+          <strong>${currentShopName}</strong> • ${currentAddress} • Tel: ${currentPhone}
         </div>
       </div>
     </body>
@@ -139,7 +145,7 @@ export function getBillHtml(billData: any): string {
   `;
 }
 
-export function printBillHtml(billData: any) {
-  const html = getBillHtml(billData);
+export function printBillHtml(billData: any, shopInfo?: any) {
+  const html = getBillHtml(billData, shopInfo);
   printInNewWindow(html, `Bill_${billData.billNumber || billData.id}`);
 }

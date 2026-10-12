@@ -10,11 +10,13 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getWhatsAppKhataUrl, getWhatsAppTransactionUrl } from '../config/shopConfig';
 
 export default function CustomerLedgerPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [customer, setCustomer] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,17 +51,29 @@ export default function CustomerLedgerPage() {
   const isDeletingTxRef = useRef(false);
 
   useEffect(() => {
-    if (id) fetchLedgerData();
-  }, [id]);
+    if (id && user) fetchLedgerData();
+  }, [id, user]);
 
   const fetchLedgerData = async () => {
-    if (!id) return;
+    if (!id || !user) return;
     try {
       const docRef = doc(db, 'khata', id);
       const snap = await getDoc(docRef);
-      if (snap.exists()) setCustomer({ id: snap.id, ...snap.data() });
+      if (snap.exists()) {
+        const custData = snap.data();
+        if (custData.userId && custData.userId !== user.uid) {
+          error("Customer not found or unauthorized");
+          navigate('/khata');
+          return;
+        }
+        setCustomer({ id: snap.id, ...custData });
+      } else {
+        error("Customer not found");
+        navigate('/khata');
+        return;
+      }
 
-      const txQuery = query(collection(db, 'khataTransactions'), where('khataId', '==', id));
+      const txQuery = query(collection(db, 'khataTransactions'), where('userId', '==', user.uid), where('khataId', '==', id));
       const txSnap = await getDocs(txQuery);
       const txs: any[] = [];
       txSnap.forEach(d => {
@@ -84,6 +98,7 @@ export default function CustomerLedgerPage() {
 
   const handleTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return error('Please sign in to record transactions');
     if (!id || !amount || !txModalType || !customer || isAddingTxRef.current || isAddingTx) return;
     
     isAddingTxRef.current = true;
@@ -94,6 +109,7 @@ export default function CustomerLedgerPage() {
       const newBalance = txModalType === 'udhar' ? currentBalance + amt : currentBalance - amt;
 
       const newTx = {
+        userId: user.uid,
         khataId: id,
         customerName: customer.name,
         transactionType: txModalType,

@@ -1,8 +1,86 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        (!('userId' in resource.data) && request.auth.token.email == 'threadsandtailsshop@gmail.com')
+      );
+    }
+
+    function isCreatingOwned() {
+      return isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Default deny all unknown collections
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Shop profiles and custom configurations
+    match /shops/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Mobiles Inventory
+    match /mobiles/{docId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwned();
+      allow update, delete: if isDocOwner();
+    }
+
+    // Sales Records
+    match /sales/{docId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwned();
+      allow update, delete: if isDocOwner();
+    }
+
+    // Bills & Invoices
+    match /bills/{docId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwned();
+      allow update, delete: if isDocOwner();
+    }
+
+    // Khata Customers
+    match /khata/{docId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwned();
+      allow update, delete: if isDocOwner();
+    }
+
+    // Khata Ledger Transactions
+    match /khataTransactions/{docId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwned();
+      allow update, delete: if isDocOwner();
+    }
+
+    // Expenses
+    match /expenses/{docId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwned();
+      allow update, delete: if isDocOwner();
+    }
+
+    // Backups
+    match /backups/{docId} {
+      allow read, write: if isAuthenticated() && (docId == request.auth.uid || resource == null || resource.data.userId == request.auth.uid);
     }
   }
 }

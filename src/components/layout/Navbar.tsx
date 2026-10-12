@@ -13,19 +13,26 @@ interface NavbarProps {
 }
 
 export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, shopProfile } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [lowStockMobiles, setLowStockMobiles] = useState<any[]>([]);
 
   useEffect(() => {
-    // Listen for low stock (quantity <= 2)
-    const q = query(collection(db, 'mobiles'), where('quantity', '<=', 2));
+    if (!user) {
+      setLowStockMobiles([]);
+      return;
+    }
+    // Listen for mobiles strictly for current authenticated user
+    const q = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
-      setLowStockMobiles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const lowStock = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((m: any) => (Number(m.quantity) || 0) <= 2 && (Number(m.quantity) || 0) > 0);
+      setLowStockMobiles(lowStock);
     });
     return unsub;
-  }, []);
+  }, [user]);
 
   return (
     <header className="bg-white border-b border-gray-100 flex items-center px-2.5 sm:px-6 gap-1.5 sm:gap-4 flex-shrink-0 z-30 pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-2 min-h-[calc(3.75rem+env(safe-area-inset-top,0px))] sm:min-h-[calc(4.25rem+env(safe-area-inset-top,0px))]">
@@ -43,17 +50,17 @@ export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarPr
       {/* Logo / Title */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
         <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-white p-0.5 border border-amber-500/25 shadow-xs flex items-center justify-center shrink-0">
-          <img src={SHOP_CONFIG.logoUrl} alt={SHOP_CONFIG.shortName} className="w-full h-full object-contain" />
+          <img src={SHOP_CONFIG.logoUrl} alt={shopProfile?.shortName || SHOP_CONFIG.shortName} className="w-full h-full object-contain" />
         </div>
         <div className="flex flex-col min-w-0">
           <span className="font-extrabold text-xs sm:text-base text-gray-900 tracking-tight truncate flex items-center gap-1">
-            <span className="truncate">{SHOP_CONFIG.name}</span>
+            <span className="truncate">{shopProfile?.shopName || SHOP_CONFIG.name}</span>
             <span className="text-[9px] sm:text-[10px] bg-amber-100 text-amber-900 font-black px-1 sm:px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
-              {SHOP_CONFIG.shortName}
+              {shopProfile?.shortName || SHOP_CONFIG.shortName}
             </span>
           </span>
           <span className="text-[10px] text-gray-400 font-medium tracking-wide -mt-0.5 truncate hidden sm:block">
-            {SHOP_CONFIG.subTitle}
+            {shopProfile?.subTitle || SHOP_CONFIG.subTitle}
           </span>
         </div>
       </div>

@@ -9,9 +9,12 @@ import { Select } from '../components/ui/Select';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { PrintPromptModal } from '../components/ui/PrintPromptModal';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
+import { parseDateSafe } from '../utils/dateUtils';
 import { Zap, Smartphone, QrCode, X, Plus } from 'lucide-react';
 
 export default function MobilesStockPage() {
+  const { user, shopProfile } = useAuth();
   const [mobiles, setMobiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -44,18 +47,33 @@ export default function MobilesStockPage() {
   const { success, error } = useToast();
 
   useEffect(() => {
+    if (!user) return;
+
     const fetchKhata = async () => {
-      const snap = await getDocs(query(collection(db, 'khata'), orderBy('name')));
-      setKhataCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      try {
+        const snap = await getDocs(query(collection(db, 'khata'), where('userId', '==', user.uid)));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+        setKhataCustomers(list);
+      } catch (err) {
+        console.error(err);
+      }
     };
     fetchKhata();
-    const q = query(collection(db, 'mobiles'), orderBy('createdAt', 'desc'));
+
+    const q = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
-      setMobiles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      list.sort((a: any, b: any) => {
+        const da = a.createdAt?.toMillis ? a.createdAt.toMillis() : (parseDateSafe(a.createdAt || a.purchaseDate)?.getTime() || 0);
+        const db = b.createdAt?.toMillis ? b.createdAt.toMillis() : (parseDateSafe(b.createdAt || b.purchaseDate)?.getTime() || 0);
+        return db - da;
+      });
+      setMobiles(list);
       setLoading(false);
     });
     return unsub;
-  }, []);
+  }, [user]);
 
   const filteredMobiles = mobiles.filter(m => {
     if (m.quantity <= 0) return false;
@@ -110,6 +128,7 @@ export default function MobilesStockPage() {
       // 2. Create Sale Record
       const saleRef = doc(collection(db, 'sales'));
       const saleData = {
+        userId: user?.uid,
         itemType: 'mobile',
         itemId: singleSellModal.id,
         itemName: `${singleSellModal.company} ${singleSellModal.modelName}`,
@@ -131,10 +150,11 @@ export default function MobilesStockPage() {
 
       // 3. Create Bill Record
       const billRef = doc(collection(db, 'bills'));
-      const billsSnap = await getDocs(query(collection(db, 'bills')));
+      const billsSnap = await getDocs(query(collection(db, 'bills'), where('userId', '==', user?.uid)));
       const billNumber = `ZM-${new Date().getFullYear()}-${String(billsSnap.size + 1).padStart(4, '0')}`;
       
       const billData = {
+        userId: user?.uid,
         billNumber,
         customerName: singleSellModal.customerName,
         customerPhone: singleSellModal.customerPhone,
@@ -171,6 +191,7 @@ export default function MobilesStockPage() {
           
           const txnRef = doc(collection(db, 'khataTransactions'));
           batch.set(txnRef, {
+            userId: user?.uid,
             khataId: singleSelectedKhataId,
             customerName: khataSnap.data().name,
             transactionType: 'udhar',
@@ -282,7 +303,7 @@ export default function MobilesStockPage() {
 
       // Create Bill
       const billRef = doc(collection(db, 'bills'));
-      const billsSnap = await getDocs(query(collection(db, 'bills')));
+      const billsSnap = await getDocs(query(collection(db, 'bills'), where('userId', '==', user?.uid)));
       const billNumber = `ZM-${new Date().getFullYear()}-${String(billsSnap.size + 1).padStart(4, '0')}`;
       
       const billItems = validItems.map(item => {
@@ -300,6 +321,7 @@ export default function MobilesStockPage() {
       });
 
       const billData = {
+        userId: user?.uid,
         billNumber,
         customerName: multiCustomerName,
         customerPhone: multiCustomerPhone,
@@ -320,6 +342,7 @@ export default function MobilesStockPage() {
       billItems.forEach(item => {
         const saleRef = doc(collection(db, 'sales'));
         batch.set(saleRef, {
+          userId: user?.uid,
           itemType: 'mobile',
           itemId: item.mobileId,
           itemName: `${item.company} ${item.modelName}`,
@@ -352,6 +375,7 @@ export default function MobilesStockPage() {
           
           const txnRef = doc(collection(db, 'khataTransactions'));
           batch.set(txnRef, {
+            userId: user?.uid,
             khataId: multiSelectedKhataId,
             customerName: khataSnap.data().name,
             transactionType: 'udhar',

@@ -7,6 +7,7 @@ import { BillPreviewModal } from './BillPreviewModal';
 import { BluetoothPrinterModal } from './BluetoothPrinterModal';
 import { getBillHtml } from '../../utils/printBill';
 import { getWhatsAppSaleBillUrl } from '../../config/shopConfig';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface PrintPromptModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface PrintPromptModalProps {
 }
 
 export function PrintPromptModal({ isOpen, onClose, billData, profit }: PrintPromptModalProps) {
+  const { shopProfile } = useAuth();
   const [showPreview, setShowPreview] = useState(false);
   const [showBluetooth, setShowBluetooth] = useState(false);
 
@@ -33,7 +35,7 @@ export function PrintPromptModal({ isOpen, onClose, billData, profit }: PrintPro
     onClose();
   };
 
-  const billHtml = billData ? getBillHtml(billData) : '';
+  const billHtml = billData ? getBillHtml(billData, shopProfile) : '';
 
   const handleWhatsAppShare = () => {
     if (!billData) return;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { collection, query, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, where, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +34,7 @@ const CATEGORIES = [
 ];
 
 export default function ExpensesPage() {
+  const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [salesProfit, setSalesProfit] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -56,14 +58,17 @@ export default function ExpensesPage() {
   const deleteLoadingRef = useRef(false);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   const fetchData = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      // Fetch Expenses
-      const expSnap = await getDocs(query(collection(db, 'expenses'), orderBy('date', 'desc')));
+      // Fetch Expenses strictly scoped to user
+      const expSnap = await getDocs(query(collection(db, 'expenses'), where('userId', '==', user.uid)));
       const exps: Expense[] = [];
       expSnap.forEach((d) => {
         const data = d.data();
@@ -77,13 +82,18 @@ export default function ExpensesPage() {
           createdAt: parseDateSafe(data.createdAt) || new Date(),
         });
       });
+      // Sort in memory by date descending
+      exps.sort((a, b) => b.date.getTime() - a.date.getTime());
       setExpenses(exps);
 
-      // Fetch Sales for Profit calc
-      const salesSnap = await getDocs(collection(db, 'sales'));
+      // Fetch Sales strictly scoped to user for Profit calc
+      const salesSnap = await getDocs(query(collection(db, 'sales'), where('userId', '==', user.uid)));
       let totalSalesProfit = 0;
       salesSnap.forEach((d) => {
-        totalSalesProfit += (d.data().profit || 0);
+        const s = d.data();
+        if (s.status !== 'returned') {
+          totalSalesProfit += (s.profit || 0);
+        }
       });
       setSalesProfit(totalSalesProfit);
     } catch (e) {
@@ -115,6 +125,7 @@ export default function ExpensesPage() {
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     if (!title || !amount || !category || !date || formLoadingRef.current || formLoading) return;
 
     formLoadingRef.current = true;
@@ -122,6 +133,7 @@ export default function ExpensesPage() {
     try {
       if (expenseToEdit) {
         await updateDoc(doc(db, 'expenses', expenseToEdit.id), {
+          userId: user.uid,
           title: title.trim(),
           amount: Number(amount),
           category,
@@ -130,6 +142,7 @@ export default function ExpensesPage() {
         });
       } else {
         const newExpense = {
+          userId: user.uid,
           title: title.trim(),
           amount: Number(amount),
           category,

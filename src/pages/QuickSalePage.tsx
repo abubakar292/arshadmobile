@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { collection, doc, serverTimestamp, writeBatch, getDocs, getDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, writeBatch, getDocs, getDoc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -7,21 +7,26 @@ import { Select } from '../components/ui/Select';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { PrintPromptModal } from '../components/ui/PrintPromptModal';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { QrCode, Zap } from 'lucide-react';
 import { generateBillNumber } from '../utils/printBill';
 
 export default function QuickSalePage() {
+  const { user, shopProfile } = useAuth();
   useEffect(() => {
+    if (!user) return;
     const fetchKhataCustomers = async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'khata'), orderBy('name')));
-        setKhataCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const snap = await getDocs(query(collection(db, 'khata'), where('userId', '==', user.uid)));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+        setKhataCustomers(list);
       } catch (err) {
         console.error("Error fetching khata customers:", err);
       }
     };
     fetchKhataCustomers();
-  }, []);
+  }, [user]);
   const [formData, setFormData] = useState({
     customerName: '',
     customerPhone: '',
@@ -77,7 +82,7 @@ export default function QuickSalePage() {
       // Generate sequential bill number
       let billNumber = '';
       try {
-        const billsSnap = await getDocs(collection(db, 'bills'));
+        const billsSnap = await getDocs(query(collection(db, 'bills'), where('userId', '==', user?.uid)));
         billNumber = generateBillNumber(billsSnap.size + 1);
       } catch (e) {
         billNumber = generateBillNumber();
@@ -85,6 +90,7 @@ export default function QuickSalePage() {
 
       const billRef = doc(collection(db, 'bills'));
       const billData = {
+        userId: user?.uid,
         billNumber,
         customerName: formData.customerName || 'Walk-in Customer',
         customerPhone: formData.customerPhone || '',
@@ -116,6 +122,7 @@ export default function QuickSalePage() {
       // Create a sale record in sales collection
       const saleRef = doc(collection(db, 'sales'));
       batch.set(saleRef, {
+        userId: user?.uid,
         itemType: 'quick_sale',
         itemName: formData.company ? `${formData.company} ${formData.itemName}` : formData.itemName,
         company: formData.company || '',
@@ -146,6 +153,7 @@ export default function QuickSalePage() {
           
           const txnRef = doc(collection(db, 'khataTransactions'));
           batch.set(txnRef, {
+            userId: user?.uid,
             khataId: selectedKhataId,
             customerName: khataSnap.data().name,
             transactionType: 'udhar',

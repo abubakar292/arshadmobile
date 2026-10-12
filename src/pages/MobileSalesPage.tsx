@@ -20,6 +20,7 @@ import { getBillHtml } from '../utils/printBill';
 import { BillPreviewModal } from '../components/ui/BillPreviewModal';
 import { BluetoothPrinterModal } from '../components/ui/BluetoothPrinterModal';
 import { getWhatsAppSaleBillUrl } from '../config/shopConfig';
+import { useAuth } from '../contexts/AuthContext';
 
 const COMPANY_OPTIONS = [
   { value: '', label: 'All Brands / Companies' },
@@ -59,6 +60,7 @@ const DATE_PRESETS = [
 ];
 
 export default function MobileSalesPage() {
+  const { user, shopProfile } = useAuth();
   const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -90,13 +92,20 @@ export default function MobileSalesPage() {
   const { success, error } = useToast();
 
   useEffect(() => {
-    const q = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
+    if (!user) return;
+    const q = query(collection(db, 'sales'), where('userId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
-      setSales(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      list.sort((a: any, b: any) => {
+        const da = a.createdAt?.toMillis ? a.createdAt.toMillis() : (parseDateSafe(a.createdAt || a.date)?.getTime() || 0);
+        const db = b.createdAt?.toMillis ? b.createdAt.toMillis() : (parseDateSafe(b.createdAt || b.date)?.getTime() || 0);
+        return db - da;
+      });
+      setSales(list);
       setLoading(false);
     });
     return unsub;
-  }, []);
+  }, [user]);
 
   // Calculate active filter count
   const activeFiltersCount = useMemo(() => {
@@ -228,9 +237,9 @@ export default function MobileSalesPage() {
           batch.update(mobileRef, { quantity: increment(1) });
         }
       } else if (saleToReturn.imei1) {
-        // Fallback: match by IMEI if available
+        // Fallback: match by IMEI if available strictly in user's stock
         try {
-          const matchQ = query(collection(db, 'mobiles'), where('imei1', '==', saleToReturn.imei1));
+          const matchQ = query(collection(db, 'mobiles'), where('userId', '==', user?.uid), where('imei1', '==', saleToReturn.imei1));
           const matchSnap = await getDocs(matchQ);
           if (!matchSnap.empty) {
             batch.update(doc(db, 'mobiles', matchSnap.docs[0].id), { quantity: increment(1) });
@@ -267,6 +276,7 @@ export default function MobileSalesPage() {
 
             const txnRef = doc(collection(db, 'khataTransactions'));
             batch.set(txnRef, {
+              userId: user?.uid,
               khataId,
               customerName: khataSnap.data().name || saleToReturn.customerName,
               transactionType: 'wasooli',
@@ -340,7 +350,7 @@ export default function MobileSalesPage() {
     });
   };
 
-  const saleBillHtml = previewSaleBill ? getBillHtml(previewSaleBill) : '';
+  const saleBillHtml = previewSaleBill ? getBillHtml(previewSaleBill, shopProfile) : '';
 
   const handleWhatsAppForSalePreview = () => {
     if (!previewSaleBill) return;

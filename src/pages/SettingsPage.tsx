@@ -23,14 +23,14 @@ import {
 import { format } from 'date-fns';
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, shopProfile, updateProfileData } = useAuth();
   const { success, error, toast } = useToast();
   const [showInstallModal, setShowInstallModal] = useState(false);
   
-  const [shopName, setShopName] = useState(SHOP_CONFIG.name);
-  const [ownerName, setOwnerName] = useState('Admin');
-  const [phone, setPhone] = useState(SHOP_CONFIG.phone);
-  const [address, setAddress] = useState(SHOP_CONFIG.address);
+  const [shopName, setShopName] = useState(shopProfile?.shopName || SHOP_CONFIG.name);
+  const [ownerName, setOwnerName] = useState(shopProfile?.ownerName || 'Admin');
+  const [phone, setPhone] = useState(shopProfile?.phone || SHOP_CONFIG.phone);
+  const [address, setAddress] = useState(shopProfile?.address || SHOP_CONFIG.address);
 
   // Backup & Restore State
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -50,16 +50,35 @@ export default function SettingsPage() {
     const savedTime = getLastBackupTime();
     setLastBackup(savedTime);
   }, []);
+
+  useEffect(() => {
+    if (shopProfile) {
+      setShopName(shopProfile.shopName || SHOP_CONFIG.name);
+      setOwnerName(shopProfile.ownerName || 'Admin');
+      setPhone(shopProfile.phone || SHOP_CONFIG.phone);
+      setAddress(shopProfile.address || SHOP_CONFIG.address);
+    }
+  }, [shopProfile]);
   
-  const handleSaveShopInfo = (e: React.FormEvent) => {
+  const handleSaveShopInfo = async (e: React.FormEvent) => {
     e.preventDefault();
-    success('Shop settings saved successfully.');
+    try {
+      await updateProfileData({
+        shopName: shopName.trim(),
+        ownerName: ownerName.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+      });
+      success('Shop profile saved successfully!');
+    } catch (err: any) {
+      error(err.message || 'Error saving shop profile');
+    }
   };
 
   const handleRunBackup = async (downloadFile = false) => {
     setIsBackingUp(true);
     try {
-      const backup = await createFullShopBackup();
+      const backup = await createFullShopBackup(user?.uid);
       if (downloadFile) {
         downloadBackupFile(backup);
       }
@@ -101,9 +120,9 @@ export default function SettingsPage() {
   const handleCheckCloudRestore = async () => {
     setIsBackingUp(true);
     try {
-      const cloudBackup = await getLatestCloudBackup();
+      const cloudBackup = await getLatestCloudBackup(user?.uid);
       if (!cloudBackup || (!cloudBackup.data && !cloudBackup.summary)) {
-        error('No previous cloud backup found. Please restore using a backup JSON file.');
+        error('No previous cloud backup found for your shop account. Please restore using a backup JSON file.');
         return;
       }
       setRestoreCandidate(cloudBackup);
@@ -120,7 +139,7 @@ export default function SettingsPage() {
     if (!restoreCandidate) return;
     setIsRestoring(true);
     try {
-      const result: RestoreResult = await restoreShopBackup(restoreCandidate);
+      const result: RestoreResult = await restoreShopBackup(restoreCandidate, user?.uid);
       success(result.message);
       setShowRestoreModal(false);
       setRestoreCandidate(null);

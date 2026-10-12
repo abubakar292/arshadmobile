@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { SearchBar } from '../components/ui/SearchBar';
 import { Badge } from '../components/ui/Badge';
@@ -11,8 +11,10 @@ import { format, isToday, isThisWeek, isThisMonth, startOfDay, endOfDay, isWithi
 import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
 import { getBillHtml } from '../utils/printBill';
 import { getWhatsAppSaleBillUrl } from '../config/shopConfig';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function BillsHistoryPage() {
+  const { user, shopProfile } = useAuth();
   const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -29,13 +31,20 @@ export default function BillsHistoryPage() {
   const [bluetoothBill, setBluetoothBill] = useState<any | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'bills'), orderBy('createdAt', 'desc'));
+    if (!user) return;
+    const q = query(collection(db, 'bills'), where('userId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
-      setBills(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      list.sort((a: any, b: any) => {
+        const da = a.createdAt?.toMillis ? a.createdAt.toMillis() : (parseDateSafe(a.createdAt || a.date)?.getTime() || 0);
+        const db = b.createdAt?.toMillis ? b.createdAt.toMillis() : (parseDateSafe(b.createdAt || b.date)?.getTime() || 0);
+        return db - da;
+      });
+      setBills(list);
       setLoading(false);
     });
     return unsub;
-  }, []);
+  }, [user]);
 
   const filteredBills = bills.filter(b => {
     const term = search.toLowerCase().trim();
@@ -85,7 +94,7 @@ export default function BillsHistoryPage() {
     setPreviewBill(bill);
   };
 
-  const billHtml = previewBill ? getBillHtml(previewBill) : '';
+  const billHtml = previewBill ? getBillHtml(previewBill, shopProfile) : '';
 
   const handleWhatsAppForPreview = () => {
     if (!previewBill) return;

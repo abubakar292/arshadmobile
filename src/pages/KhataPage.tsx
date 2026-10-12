@@ -8,9 +8,11 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getWhatsAppKhataUrl } from '../config/shopConfig';
 
 export default function KhataPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'receivable' | 'payable'>('receivable');
   const [customers, setCustomers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,17 +44,26 @@ export default function KhataPage() {
   const isDeletingRef = useRef(false);
 
   useEffect(() => {
-    fetchCustomers();
-  }, []);
+    if (user) {
+      fetchCustomers();
+    }
+  }, [user]);
 
   const fetchCustomers = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const q = query(collection(db, 'khata'), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'khata'), where('userId', '==', user.uid));
       const snap = await getDocs(q);
       const cust: any[] = [];
       snap.forEach(docSnap => {
         cust.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      // Sort client-side by createdAt descending
+      cust.sort((a, b) => {
+        const da = a.createdAt?.toMillis ? a.createdAt.toMillis() : (new Date(a.createdAt || 0).getTime());
+        const db = b.createdAt?.toMillis ? b.createdAt.toMillis() : (new Date(b.createdAt || 0).getTime());
+        return db - da;
       });
       setCustomers(cust);
     } catch (e: any) {
@@ -65,12 +76,14 @@ export default function KhataPage() {
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return error('Please sign in to add customers');
     if (!name || !type || isAddingCustomerRef.current || isAddingCustomer) return;
     
     isAddingCustomerRef.current = true;
     setIsAddingCustomer(true);
     try {
       await addDoc(collection(db, 'khata'), {
+        userId: user.uid,
         name: name.trim(),
         phone: phone.trim(),
         type,
@@ -118,7 +131,7 @@ export default function KhataPage() {
 
       // Also update customerName across their transactions
       try {
-        const txQuery = query(collection(db, 'khataTransactions'), where('khataId', '==', customerToEdit.id));
+        const txQuery = query(collection(db, 'khataTransactions'), where('userId', '==', user?.uid), where('khataId', '==', customerToEdit.id));
         const txSnap = await getDocs(txQuery);
         if (!txSnap.empty) {
           const batch = writeBatch(db);
@@ -154,7 +167,7 @@ export default function KhataPage() {
     setIsDeleting(true);
     try {
       // 1. Delete all transactions associated with this customer
-      const txQuery = query(collection(db, 'khataTransactions'), where('khataId', '==', customerToDelete.id));
+      const txQuery = query(collection(db, 'khataTransactions'), where('userId', '==', user?.uid), where('khataId', '==', customerToDelete.id));
       const txSnap = await getDocs(txQuery);
       if (!txSnap.empty) {
         const batch = writeBatch(db);
