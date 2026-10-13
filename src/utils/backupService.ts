@@ -63,9 +63,6 @@ export function setDriveWebhookUrl(url: string): void {
  */
 export async function createFullShopBackup(userId?: string): Promise<ShopBackupData> {
   const getColDocs = (colName: string) => {
-    if (userId) {
-      return getDocs(query(collection(db, colName), where('userId', '==', userId)));
-    }
     return getDocs(collection(db, colName));
   };
 

@@ -1,4 +1,5 @@
-import { Bell, LogOut, User as UserIcon, Menu, ChevronDown, Download, Smartphone } from 'lucide-react';
+import { Bell, LogOut, User as UserIcon, Menu, ChevronDown, Download, Smartphone, Server } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
@@ -13,6 +14,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarProps) {
+  const navigate = useNavigate();
   const { user, logout, shopProfile } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -23,8 +25,8 @@ export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarPr
       setLowStockMobiles([]);
       return;
     }
-    // Listen for mobiles strictly for current authenticated user
-    const q = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
+    // Listen for low stock mobiles across shop inventory
+    const q = collection(db, 'mobiles');
     const unsub = onSnapshot(q, (snap) => {
       const lowStock = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
@@ -170,7 +172,7 @@ export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarPr
                     {onInstallClick && (
                       <button
                         onClick={() => { setShowDropdown(false); onInstallClick(); }}
-                        className="w-full px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                        className="w-full px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <Smartphone className="w-3.5 h-3.5 text-amber-600" />
                         Install App on Phone

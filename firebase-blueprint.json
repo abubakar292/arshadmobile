@@ -127,16 +127,93 @@
         "summary": { "type": "string" }
       },
       "required": ["userId"]
+    },
+    "shopInvite": {
+      "title": "Shop Invite",
+      "description": "One-time registration invite created by Super Admin for a specific shopkeeper email",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "shopName": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string" },
+        "inviteCode": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email", "shopName", "status"]
+    },
+    "dailyMetric": {
+      "title": "Daily Telemetry Metric",
+      "description": "Daily aggregated activity counters per shop for KnowMobiles dashboard",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "shopId": { "type": "string" },
+        "shopName": { "type": "string" },
+        "date": { "type": "string" },
+        "salesCount": { "type": "number" },
+        "salesVolume": { "type": "number" },
+        "profit": { "type": "number" },
+        "stockCount": { "type": "number" }
+      },
+      "required": ["shopId", "date"]
+    },
+    "admin_credential": {
+      "title": "Shop Admin Credential",
+      "description": "Founder-level record of shopkeeper credentials and access logs",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "shopName": { "type": "string" },
+        "ownerEmail": { "type": "string" },
+        "ownerPassword": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "lastLogin": { "type": "string" }
+      },
+      "required": ["shopId", "ownerEmail"]
+    },
+    "shop_registration": {
+      "title": "Shop Registration Lock",
+      "description": "Enforces 1-time signup per shop",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "registered": { "type": "boolean" },
+        "ownerEmail": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "registeredAt": { "type": "string" }
+      },
+      "required": ["shopId", "registered"]
     }
   },
   "firestore": {
+    "/admin_credentials/{docId}": {
+      "schema": "admin_credential",
+      "description": "Founder-accessible registry of shopkeeper logins"
+    },
+    "/shop_registrations/{shopId}": {
+      "schema": "shop_registration",
+      "description": "Registration lock status per shop"
+    },
     "/users/{userId}": {
       "schema": "user",
       "description": "User profiles indexed by UID"
     },
-    "/shops/{userId}": {
+    "/shops/{shopId}": {
       "schema": "shop",
-      "description": "Shop customization and profile indexed by UID"
+      "description": "Master shops directory indexed by shopId or UID"
+    },
+    "/shopInvites/{inviteId}": {
+      "schema": "shopInvite",
+      "description": "One-time shopkeeper registration authorization records"
+    },
+    "/dailyMetrics/{docId}": {
+      "schema": "dailyMetric",
+      "description": "Cross-shop aggregated telemetry per date"
     },
     "/mobiles/{docId}": {
       "schema": "mobile",

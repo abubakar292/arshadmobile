@@ -42,7 +42,7 @@ export default function InventoryValuationPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'mobiles'), where('userId', '==', user.uid)));
+      const snap = await getDocs(collection(db, 'mobiles'));
       const items: MobileStockItem[] = [];
       snap.forEach(docSnap => {
         const data = docSnap.data();

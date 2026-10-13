@@ -1,4 +1,5 @@
 export const SHOP_CONFIG = {
+  shopId: 'arshad-mobile-zone',
   name: 'Arshad Mobile Zone',
   shortName: 'AMZ',
   subTitle: 'Bara Bazar Khyber',

@@ -67,8 +67,8 @@ export default function ExpensesPage() {
     if (!user) return;
     setLoading(true);
     try {
-      // Fetch Expenses strictly scoped to user
-      const expSnap = await getDocs(query(collection(db, 'expenses'), where('userId', '==', user.uid)));
+      // Fetch Expenses
+      const expSnap = await getDocs(collection(db, 'expenses'));
       const exps: Expense[] = [];
       expSnap.forEach((d) => {
         const data = d.data();
@@ -86,8 +86,8 @@ export default function ExpensesPage() {
       exps.sort((a, b) => b.date.getTime() - a.date.getTime());
       setExpenses(exps);
 
-      // Fetch Sales strictly scoped to user for Profit calc
-      const salesSnap = await getDocs(query(collection(db, 'sales'), where('userId', '==', user.uid)));
+      // Fetch Sales for Profit calc
+      const salesSnap = await getDocs(collection(db, 'sales'));
       let totalSalesProfit = 0;
       salesSnap.forEach((d) => {
         const s = d.data();

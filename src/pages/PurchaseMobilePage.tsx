@@ -78,7 +78,7 @@ export default function PurchaseMobilePage() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
+    const q = collection(db, 'mobiles');
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a: any, b: any) => {

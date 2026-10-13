@@ -47,13 +47,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         customName || firebaseUser.displayName || ''
       );
       setShopProfile(profile);
-
-      // Auto-claim unassigned legacy data for primary admin
-      if (firebaseUser.email === 'threadsandtailsshop@gmail.com') {
-        claimLegacyDataForUser(firebaseUser.uid).catch(err => {
-          console.warn("Legacy data claim completed with notices:", err);
-        });
-      }
     } catch (err) {
       console.error("Error loading user shop profile:", err);
     }

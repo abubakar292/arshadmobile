@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, ShoppingCart, Smartphone, TrendingUp, Zap, Receipt, 
-  CreditCard, BookOpen, Package, Settings, X, Download
+  CreditCard, BookOpen, Package, Settings, X, Download, Server
 } from 'lucide-react';
 import { SHOP_CONFIG } from '../../config/shopConfig';
 import { useAuth } from '../../contexts/AuthContext';
@@ -41,7 +41,7 @@ const sections = [
     ]
   },
   {
-    title: null,
+    title: 'Settings',
     items: [
       { path: '/settings', icon: Settings, label: 'Settings' },
     ]
