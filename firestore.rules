@@ -6,91 +6,68 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Checks if the document belongs to the authenticated user.
-    // Also permits reading and claiming documents matching the user's email or legacy unassigned records.
-    function isDocOwner() {
-      return isAuthenticated() && (
-        (resource == null && request.resource.data.userId == request.auth.uid) ||
-        (resource != null && (
-          resource.data.userId == request.auth.uid ||
-          (resource.data.userEmail != null && request.auth.token.email != null && resource.data.userEmail == request.auth.token.email) ||
-          (!('userId' in resource.data) && !('userEmail' in resource.data))
-        ))
-      );
-    }
-
-    function canWriteDoc() {
-      return isAuthenticated() && (
-        (resource == null && request.resource.data.userId == request.auth.uid) ||
-        (resource != null && (
-          resource.data.userId == request.auth.uid ||
-          (resource.data.userEmail != null && request.auth.token.email != null && resource.data.userEmail == request.auth.token.email) ||
-          (!('userId' in resource.data) && !('userEmail' in resource.data))
-        ) && request.resource.data.userId == request.auth.uid)
-      );
-    }
-
     // Default deny for unauthenticated or unknown collections
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // User profiles - partitioned strictly by UID
+    // User profiles
     match /users/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow read, write: if isAuthenticated();
     }
 
-    // Shop profiles - partitioned strictly by shop/user UID
+    // Shop profile and configuration
     match /shops/{shopId} {
-      allow read, write: if isAuthenticated() && (request.auth.uid == shopId || resource == null);
+      allow read, write: if isAuthenticated();
     }
 
-    // Mobiles Inventory - isolated per shop user
+    // Mobiles Inventory - All authenticated shop users can view and manage
     match /mobiles/{docId} {
-      allow read: if isDocOwner();
-      allow write: if canWriteDoc();
+      allow read, write: if isAuthenticated();
     }
 
-    // Sales Records - isolated per shop user
+    // Sales Records - All authenticated shop users can view and manage
     match /sales/{docId} {
-      allow read: if isDocOwner();
-      allow write: if canWriteDoc();
+      allow read, write: if isAuthenticated();
     }
 
-    // Bills & Invoices - isolated per shop user
+    // Bills & Invoices - All authenticated shop users can view and manage
     match /bills/{docId} {
-      allow read: if isDocOwner();
-      allow write: if canWriteDoc();
+      allow read, write: if isAuthenticated();
     }
 
-    // Khata Customers - isolated per shop user
+    // Khata Customers - All authenticated shop users can view and manage
     match /khata/{docId} {
-      allow read: if isDocOwner();
-      allow write: if canWriteDoc();
+      allow read, write: if isAuthenticated();
     }
 
-    // Khata Ledger Transactions - isolated per shop user
+    // Khata Ledger Transactions - All authenticated shop users can view and manage
     match /khataTransactions/{docId} {
-      allow read: if isDocOwner();
-      allow write: if canWriteDoc();
+      allow read, write: if isAuthenticated();
     }
 
-    // Expenses - isolated per shop user
+    // Expenses - All authenticated shop users can view and manage
     match /expenses/{docId} {
-      allow read: if isDocOwner();
-      allow write: if canWriteDoc();
+      allow read, write: if isAuthenticated();
     }
 
-    // Backups - isolated per shop user
+    // Backups - All authenticated shop users can view and manage
     match /backups/{docId} {
-      allow read: if isDocOwner();
-      allow write: if canWriteDoc();
+      allow read, write: if isAuthenticated();
     }
 
     // Daily Metrics
     match /dailyMetrics/{docId} {
-      allow read: if isDocOwner();
-      allow write: if canWriteDoc();
+      allow read, write: if isAuthenticated();
+    }
+
+    // Auxiliary collections
+    match /admin_credentials/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /shop_registrations/{docId} {
+      allow read, write: if isAuthenticated();
     }
   }
 }

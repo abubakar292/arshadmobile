@@ -55,10 +55,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
 
-    // 1. Real-time Stock Listener (Scoped strictly to current user's shop)
-    const stockQuery = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
-    // 2. Real-time Sales Listener (Scoped strictly to current user's shop)
-    const salesQuery = query(collection(db, 'sales'), where('userId', '==', user.uid));
+    // 1. Real-time Stock Listener (All shop mobiles)
+    const stockQuery = collection(db, 'mobiles');
+    // 2. Real-time Sales Listener (All shop sales)
+    const salesQuery = collection(db, 'sales');
 
     let currentMobiles: any[] = [];
     let currentSales: any[] = [];

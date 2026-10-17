@@ -93,7 +93,7 @@ export default function MobileSalesPage() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, 'sales'), where('userId', '==', user.uid));
+    const q = collection(db, 'sales');
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a: any, b: any) => {
@@ -239,7 +239,7 @@ export default function MobileSalesPage() {
       } else if (saleToReturn.imei1) {
         // Fallback: match by IMEI if available in stock
         try {
-          const matchQ = query(collection(db, 'mobiles'), where('userId', '==', user.uid), where('imei1', '==', saleToReturn.imei1));
+          const matchQ = query(collection(db, 'mobiles'), where('imei1', '==', saleToReturn.imei1));
           const matchSnap = await getDocs(matchQ);
           if (!matchSnap.empty) {
             batch.update(doc(db, 'mobiles', matchSnap.docs[0].id), { quantity: increment(1) });

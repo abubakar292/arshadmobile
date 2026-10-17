@@ -17,7 +17,7 @@ export default function QuickSalePage() {
     if (!user) return;
     const fetchKhataCustomers = async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'khata'), where('userId', '==', user.uid)));
+        const snap = await getDocs(collection(db, 'khata'));
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         list.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         setKhataCustomers(list);
@@ -82,7 +82,7 @@ export default function QuickSalePage() {
       // Generate sequential bill number
       let billNumber = '';
       try {
-        const billsSnap = await getDocs(query(collection(db, 'bills'), where('userId', '==', user.uid)));
+        const billsSnap = await getDocs(collection(db, 'bills'));
         billNumber = generateBillNumber(billsSnap.size + 1);
       } catch (e) {
         billNumber = generateBillNumber();

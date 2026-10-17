@@ -23,31 +23,14 @@ import {
 import { format } from 'date-fns';
 
 export default function SettingsPage() {
-  const { user, logout, shopProfile, updateProfileData, claimData } = useAuth();
+  const { user, logout, shopProfile, updateProfileData } = useAuth();
   const { success, error, toast } = useToast();
   const [showInstallModal, setShowInstallModal] = useState(false);
-  const [isSyncingData, setIsSyncingData] = useState(false);
   
   const [shopName, setShopName] = useState(shopProfile?.shopName || SHOP_CONFIG.name);
   const [ownerName, setOwnerName] = useState(shopProfile?.ownerName || 'Admin');
   const [phone, setPhone] = useState(shopProfile?.phone || SHOP_CONFIG.phone);
   const [address, setAddress] = useState(shopProfile?.address || SHOP_CONFIG.address);
-
-  const handleSyncData = async () => {
-    setIsSyncingData(true);
-    try {
-      const count = await claimData();
-      if (count > 0) {
-        success(`Successfully linked ${count} records to your shop account!`);
-      } else {
-        success('All shop records are verified and securely linked to your account.');
-      }
-    } catch (err: any) {
-      error(err.message || 'Error syncing data');
-    } finally {
-      setIsSyncingData(false);
-    }
-  };
 
   // Backup & Restore State
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -468,21 +451,6 @@ export default function SettingsPage() {
               <Input label="Email" value={user?.email || ''} readOnly className="bg-gray-50 text-gray-500" />
               <Input label="Display Name" value={user?.displayName || 'Admin'} readOnly className="bg-gray-50 text-gray-500" />
               
-              <div className="pt-2">
-                <Button 
-                  onClick={handleSyncData} 
-                  disabled={isSyncingData}
-                  variant="outline" 
-                  className="w-full text-xs font-bold flex items-center justify-center gap-2 border-amber-300 text-amber-900 hover:bg-amber-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingData ? 'animate-spin' : ''}`} />
-                  {isSyncingData ? 'Verifying...' : 'Sync & Link Shop Records'}
-                </Button>
-                <p className="text-[10px] text-gray-400 mt-1 text-center">
-                  Ensures all your email & shop records in Firestore are linked to this login
-                </p>
-              </div>
-
               <div className="pt-4 border-t border-gray-100">
                 <Button onClick={logout} variant="danger" className="w-full">
                   <LogOut className="w-4 h-4 mr-2" />
