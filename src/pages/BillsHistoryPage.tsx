@@ -32,7 +32,7 @@ export default function BillsHistoryPage() {
 
   useEffect(() => {
     if (!user) return;
-    const q = collection(db, 'bills');
+    const q = query(collection(db, 'bills'), where('userId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a: any, b: any) => {

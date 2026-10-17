@@ -63,7 +63,9 @@ export function setDriveWebhookUrl(url: string): void {
  */
 export async function createFullShopBackup(userId?: string): Promise<ShopBackupData> {
   const getColDocs = (colName: string) => {
-    return getDocs(collection(db, colName));
+    return userId 
+      ? getDocs(query(collection(db, colName), where('userId', '==', userId)))
+      : getDocs(collection(db, colName));
   };
 
   const [mobilesSnap, salesSnap, billsSnap, khataSnap, txSnap, expensesSnap] = await Promise.all([

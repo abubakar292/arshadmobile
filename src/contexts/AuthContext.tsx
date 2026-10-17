@@ -15,6 +15,7 @@ interface AuthContextType {
   signInGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfileData: (data: Partial<ShopProfile>) => Promise<void>;
+  claimData: () => Promise<number>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -41,6 +42,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadUserProfile = async (firebaseUser: User, customName?: string) => {
     try {
       await ensureUserDoc(firebaseUser, customName);
+      
+      // Auto-claim any unassigned or email-matched legacy data so the user's data is never missing
+      try {
+        await claimLegacyDataForUser(firebaseUser.uid, firebaseUser.email || '');
+      } catch (claimErr) {
+        console.warn("Legacy claim warning:", claimErr);
+      }
+
       const profile = await getShopProfile(
         firebaseUser.uid, 
         firebaseUser.email || '', 
@@ -93,6 +102,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setShopProfile(prev => prev ? { ...prev, ...data } : null);
   };
 
+  const claimData = async () => {
+    if (!user) return 0;
+    return await claimLegacyDataForUser(user.uid, user.email || '');
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -102,7 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp, 
       signInGoogle, 
       logout,
-      updateProfileData
+      updateProfileData,
+      claimData
     }}>
       {children}
     </AuthContext.Provider>

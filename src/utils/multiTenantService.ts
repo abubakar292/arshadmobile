@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, updateDoc, getDoc, setDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, getDoc, setDoc, writeBatch, serverTimestamp, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { SHOP_CONFIG } from '../config/shopConfig';
 
@@ -23,12 +23,16 @@ export const DEFAULT_SHOP_PROFILE: ShopProfile = {
 };
 
 /**
- * Claims any existing legacy documents that do not have a userId
- * and associates them with the given user's UID.
+ * Claims any existing legacy documents or documents associated with this user's email
+ * that do not yet have the current user's UID.
+ * This guarantees that when a client logs in (e.g. with Google or Email), all of their
+ * existing Firestore records immediately link to their account and appear in the UI.
  */
-export async function claimLegacyDataForUser(uid: string): Promise<number> {
+export async function claimLegacyDataForUser(uid: string, email?: string): Promise<number> {
   if (!uid) return 0;
   
+  const cleanEmail = email ? email.toLowerCase().trim() : '';
+
   const collectionsToClaim = [
     'mobiles',
     'sales',
@@ -45,17 +49,36 @@ export async function claimLegacyDataForUser(uid: string): Promise<number> {
       const snap = await getDocs(collection(db, colName));
       const unassignedDocs = snap.docs.filter(d => {
         const data = d.data();
-        return !data.userId;
+        
+        // 1. If document already has this user's UID, no claim needed
+        if (data.userId === uid) {
+          return false;
+        }
+
+        // 2. If document has matching userEmail, claim it to this UID
+        if (cleanEmail && data.userEmail && data.userEmail.toLowerCase().trim() === cleanEmail) {
+          return true;
+        }
+
+        // 3. If document has neither userId nor userEmail (legacy unpartitioned data)
+        if (!data.userId && !data.userEmail) {
+          return true;
+        }
+
+        return false;
       });
 
       if (unassignedDocs.length > 0) {
-        // Update in chunks of 400 for Firestore batch limits
         const chunkSize = 400;
         for (let i = 0; i < unassignedDocs.length; i += chunkSize) {
           const chunk = unassignedDocs.slice(i, i + chunkSize);
           const batch = writeBatch(db);
           chunk.forEach(d => {
-            batch.update(doc(db, colName, d.id), { userId: uid });
+            const data = d.data();
+            batch.update(doc(db, colName, d.id), { 
+              userId: uid,
+              userEmail: cleanEmail || data.userEmail || ''
+            });
           });
           await batch.commit();
           totalClaimed += chunk.length;
@@ -71,6 +94,7 @@ export async function claimLegacyDataForUser(uid: string): Promise<number> {
 
 /**
  * Loads or initializes the shop profile for the given user.
+ * Each email/UID has their own independent shop profile in /shops/{uid}.
  */
 export async function getShopProfile(uid: string, defaultEmail?: string, defaultName?: string): Promise<ShopProfile> {
   if (!uid) return DEFAULT_SHOP_PROFILE;
@@ -83,7 +107,7 @@ export async function getShopProfile(uid: string, defaultEmail?: string, default
       return { ...DEFAULT_SHOP_PROFILE, ...snap.data() } as ShopProfile;
     }
 
-    // Default profile for new user
+    // Default profile for new user / shopkeeper
     const initialProfile: ShopProfile = {
       shopName: defaultName ? `${defaultName}'s Mobile Shop` : DEFAULT_SHOP_PROFILE.shopName,
       shortName: 'AMZ',

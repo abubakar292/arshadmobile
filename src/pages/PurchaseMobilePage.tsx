@@ -78,7 +78,7 @@ export default function PurchaseMobilePage() {
 
   useEffect(() => {
     if (!user) return;
-    const q = collection(db, 'mobiles');
+    const q = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a: any, b: any) => {
@@ -163,6 +163,7 @@ export default function PurchaseMobilePage() {
 
       const data = {
         userId: user?.uid,
+        userEmail: (user?.email || '').toLowerCase(),
         modelName: formData.modelName.trim(),
         company: resolvedCompany,
         ramRom: formData.ramRom.trim(),

@@ -26,7 +26,7 @@ export function Navbar({ onMenuClick, showMenuButton, onInstallClick }: NavbarPr
       return;
     }
     // Listen for low stock mobiles across shop inventory
-    const q = collection(db, 'mobiles');
+    const q = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
       const lowStock = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))

@@ -61,6 +61,11 @@ export default function CustomerLedgerPage() {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const custData = snap.data();
+        if (custData.userId && custData.userId !== user.uid) {
+          error("Customer not found or unauthorized");
+          navigate('/khata');
+          return;
+        }
         setCustomer({ id: snap.id, ...custData });
       } else {
         error("Customer not found");
@@ -68,7 +73,7 @@ export default function CustomerLedgerPage() {
         return;
       }
 
-      const txQuery = query(collection(db, 'khataTransactions'), where('khataId', '==', id));
+      const txQuery = query(collection(db, 'khataTransactions'), where('userId', '==', user.uid), where('khataId', '==', id));
       const txSnap = await getDocs(txQuery);
       const txs: any[] = [];
       txSnap.forEach(d => {
@@ -105,6 +110,7 @@ export default function CustomerLedgerPage() {
 
       const newTx = {
         userId: user.uid,
+        userEmail: (user.email || '').toLowerCase(),
         khataId: id,
         customerName: customer.name,
         transactionType: txModalType,

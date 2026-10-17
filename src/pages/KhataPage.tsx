@@ -53,7 +53,7 @@ export default function KhataPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const q = collection(db, 'khata');
+      const q = query(collection(db, 'khata'), where('userId', '==', user.uid));
       const snap = await getDocs(q);
       const cust: any[] = [];
       snap.forEach(docSnap => {
@@ -84,6 +84,7 @@ export default function KhataPage() {
     try {
       await addDoc(collection(db, 'khata'), {
         userId: user.uid,
+        userEmail: (user.email || '').toLowerCase(),
         name: name.trim(),
         phone: phone.trim(),
         type,
@@ -167,7 +168,7 @@ export default function KhataPage() {
     setIsDeleting(true);
     try {
       // 1. Delete all transactions associated with this customer
-      const txQuery = query(collection(db, 'khataTransactions'), where('khataId', '==', customerToDelete.id));
+      const txQuery = query(collection(db, 'khataTransactions'), where('userId', '==', user.uid), where('khataId', '==', customerToDelete.id));
       const txSnap = await getDocs(txQuery);
       if (!txSnap.empty) {
         const batch = writeBatch(db);

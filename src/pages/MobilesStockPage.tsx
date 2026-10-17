@@ -51,7 +51,7 @@ export default function MobilesStockPage() {
 
     const fetchKhata = async () => {
       try {
-        const snap = await getDocs(collection(db, 'khata'));
+        const snap = await getDocs(query(collection(db, 'khata'), where('userId', '==', user.uid)));
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         list.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         setKhataCustomers(list);
@@ -61,7 +61,7 @@ export default function MobilesStockPage() {
     };
     fetchKhata();
 
-    const q = collection(db, 'mobiles');
+    const q = query(collection(db, 'mobiles'), where('userId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a: any, b: any) => {
@@ -129,6 +129,7 @@ export default function MobilesStockPage() {
       const saleRef = doc(collection(db, 'sales'));
       const saleData = {
         userId: user?.uid,
+        userEmail: (user?.email || '').toLowerCase(),
         itemType: 'mobile',
         itemId: singleSellModal.id,
         itemName: `${singleSellModal.company} ${singleSellModal.modelName}`,
@@ -150,11 +151,12 @@ export default function MobilesStockPage() {
 
       // 3. Create Bill Record
       const billRef = doc(collection(db, 'bills'));
-      const billsSnap = await getDocs(collection(db, 'bills'));
+      const billsSnap = await getDocs(query(collection(db, 'bills'), where('userId', '==', user.uid)));
       const billNumber = `ZM-${new Date().getFullYear()}-${String(billsSnap.size + 1).padStart(4, '0')}`;
       
       const billData = {
         userId: user?.uid,
+        userEmail: (user?.email || '').toLowerCase(),
         billNumber,
         customerName: singleSellModal.customerName,
         customerPhone: singleSellModal.customerPhone,
@@ -192,6 +194,7 @@ export default function MobilesStockPage() {
           const txnRef = doc(collection(db, 'khataTransactions'));
           batch.set(txnRef, {
             userId: user?.uid,
+            userEmail: (user?.email || '').toLowerCase(),
             khataId: singleSelectedKhataId,
             customerName: khataSnap.data().name,
             transactionType: 'udhar',
@@ -303,7 +306,7 @@ export default function MobilesStockPage() {
 
       // Create Bill
       const billRef = doc(collection(db, 'bills'));
-      const billsSnap = await getDocs(collection(db, 'bills'));
+      const billsSnap = await getDocs(query(collection(db, 'bills'), where('userId', '==', user.uid)));
       const billNumber = `ZM-${new Date().getFullYear()}-${String(billsSnap.size + 1).padStart(4, '0')}`;
       
       const billItems = validItems.map(item => {
@@ -322,6 +325,7 @@ export default function MobilesStockPage() {
 
       const billData = {
         userId: user?.uid,
+        userEmail: (user?.email || '').toLowerCase(),
         billNumber,
         customerName: multiCustomerName,
         customerPhone: multiCustomerPhone,
@@ -343,6 +347,7 @@ export default function MobilesStockPage() {
         const saleRef = doc(collection(db, 'sales'));
         batch.set(saleRef, {
           userId: user?.uid,
+          userEmail: (user?.email || '').toLowerCase(),
           itemType: 'mobile',
           itemId: item.mobileId,
           itemName: `${item.company} ${item.modelName}`,
@@ -376,6 +381,7 @@ export default function MobilesStockPage() {
           const txnRef = doc(collection(db, 'khataTransactions'));
           batch.set(txnRef, {
             userId: user?.uid,
+            userEmail: (user?.email || '').toLowerCase(),
             khataId: multiSelectedKhataId,
             customerName: khataSnap.data().name,
             transactionType: 'udhar',
