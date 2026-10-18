@@ -1,26 +1,65 @@
 import React, { useEffect, useRef } from 'react';
 import gsap from 'gsap';
-import { SHOP_CONFIG } from '../config/shopConfig';
+import { useAuth } from '../contexts/AuthContext';
+import { getInitials } from '../utils/brandIdentity';
 
 interface AppLoaderProps {
   isLoading: boolean;
+  shopName?: string;
+  shortName?: string;
+  subTitle?: string;
 }
 
-export default function AppLoader({ isLoading }: AppLoaderProps) {
+export default function AppLoader({ 
+  isLoading, 
+  shopName: propShopName, 
+  shortName: propShortName, 
+  subTitle: propSubTitle 
+}: AppLoaderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leftBracketRef = useRef<SVGPathElement>(null);
   const rightBracketRef = useRef<SVGPathElement>(null);
   const outerRingRef = useRef<SVGCircleElement>(null);
   const innerRingRef = useRef<SVGCircleElement>(null);
   const goldRingRef = useRef<SVGCircleElement>(null);
-  const letterARef = useRef<SVGTextElement>(null);
-  const letterMRef = useRef<SVGTextElement>(null);
-  const letterZRef = useRef<SVGTextElement>(null);
   const topTextRef = useRef<SVGTextElement>(null);
   const bottomTextRef = useRef<SVGTextElement>(null);
   const subtitleRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const glowBurstRef = useRef<HTMLDivElement>(null);
+
+  // Safe context resolution with fallbacks to props and cached localStorage
+  let authShopName = '';
+  let authShortName = '';
+  let authSubTitle = '';
+  try {
+    const auth = useAuth();
+    if (auth?.shopProfile) {
+      authShopName = auth.shopProfile.shopName;
+      authShortName = auth.shopProfile.shortName;
+      authSubTitle = auth.shopProfile.subTitle || '';
+    }
+  } catch (e) {
+    // Outside AuthContext provider
+  }
+
+  const cachedName = typeof window !== 'undefined' ? localStorage.getItem('cached_shop_name') : '';
+  const cachedShort = typeof window !== 'undefined' ? localStorage.getItem('cached_shop_short_name') : '';
+  const cachedSub = typeof window !== 'undefined' ? localStorage.getItem('cached_shop_subtitle') : '';
+
+  const effectiveShopName = (propShopName || authShopName || cachedName || 'Shop').trim();
+  const effectiveShortName = (propShortName || authShortName || cachedShort || getInitials(effectiveShopName)).trim().toUpperCase().slice(0, 4);
+  const effectiveSubTitle = (propSubTitle || authSubTitle || cachedSub || 'Mobile Management System').trim();
+
+  // Parse letters for dynamic monogram assembly
+  const letters = (effectiveShortName || 'MZ').split('');
+  const letterCount = letters.length;
+  const spacing = letterCount === 1 ? 0 : letterCount === 2 ? 68 : letterCount === 3 ? 56 : 46;
+  const fontSize = letterCount <= 2 ? 104 : letterCount === 3 ? 92 : 76;
+  const startX = 256 - ((letterCount - 1) * spacing) / 2;
+
+  // Dynamic arc text font size based on shop name length
+  const arcFontSize = Math.min(22, Math.max(14, Math.floor(360 / Math.max(1, effectiveShopName.length))));
 
   useEffect(() => {
     if (!isLoading) return;
@@ -49,16 +88,20 @@ export default function AppLoader({ isLoading }: AppLoaderProps) {
       }
 
       // Master Assemble & Disassemble Timeline
-      const tl = gsap.timeline({ repeat: -1, repeatDelay: 1 });
+      const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.2 });
 
       // Step 0: Initial exploded state
-      tl.set([letterARef.current, letterMRef.current, letterZRef.current], {
-        opacity: 0,
-        scale: 0.2,
+      tl.set('.loader-monogram-letter', (i: number, target: any, targets: any[]) => {
+        const total = targets.length;
+        const offset = (i - (total - 1) / 2) * 75;
+        return {
+          opacity: 0,
+          scale: 0.2,
+          x: offset,
+          y: i % 2 === 0 ? -40 : 40,
+          rotation: (i - (total - 1) / 2) * 25,
+        };
       })
-      .set(letterARef.current, { x: -80, y: -40, rotation: -45 })
-      .set(letterMRef.current, { y: 60, rotation: 15 })
-      .set(letterZRef.current, { x: 80, y: -40, rotation: 45 })
       .set(leftBracketRef.current, { x: -70, opacity: 0, transformOrigin: 'center' })
       .set(rightBracketRef.current, { x: 70, opacity: 0, transformOrigin: 'center' })
       .set(outerRingRef.current, { scale: 0.7, opacity: 0, transformOrigin: '256px 256px' })
@@ -87,33 +130,17 @@ export default function AppLoader({ isLoading }: AppLoaderProps) {
         ease: 'elastic.out(1, 0.75)',
       }, '-=0.4')
 
-      // Step 2: AMZ Letters Slam Together and Assemble
-      .to(letterARef.current, {
+      // Step 2: Monogram Letters Slam Together and Assemble
+      .to('.loader-monogram-letter', {
         x: 0,
         y: 0,
         rotation: 0,
         scale: 1,
         opacity: 1,
         duration: 0.6,
+        stagger: 0.08,
         ease: 'back.out(2)',
       }, '-=0.2')
-      .to(letterMRef.current, {
-        y: 0,
-        rotation: 0,
-        scale: 1,
-        opacity: 1,
-        duration: 0.6,
-        ease: 'back.out(2)',
-      }, '-=0.5')
-      .to(letterZRef.current, {
-        x: 0,
-        y: 0,
-        rotation: 0,
-        scale: 1,
-        opacity: 1,
-        duration: 0.6,
-        ease: 'back.out(2)',
-      }, '-=0.5')
 
       // Step 3: Impact Flash / Gold Burst
       .to(glowBurstRef.current, {
@@ -155,11 +182,17 @@ export default function AppLoader({ isLoading }: AppLoaderProps) {
       // Step 6: De-assemble / Disassemble Transition
       .to(subtitleRef.current, { opacity: 0, y: -10, duration: 0.3 })
       .to([topTextRef.current, bottomTextRef.current], { opacity: 0, scale: 1.1, duration: 0.3 }, '-=0.2')
-      .to(letterARef.current, { x: -70, y: -40, rotation: -30, opacity: 0, duration: 0.5, ease: 'power2.in' }, '-=0.1')
-      .to(letterMRef.current, { y: 50, rotation: 10, opacity: 0, duration: 0.5, ease: 'power2.in' }, '-=0.4')
-      .to(letterZRef.current, { x: 70, y: -40, rotation: 30, opacity: 0, duration: 0.5, ease: 'power2.in' }, '-=0.4')
+      .to('.loader-monogram-letter', {
+        x: (i: number, target: any, targets: any[]) => (i - (targets.length - 1) / 2) * 60,
+        y: (i: number) => (i % 2 === 0 ? -35 : 35),
+        rotation: (i: number, target: any, targets: any[]) => (i - (targets.length - 1) / 2) * 20,
+        opacity: 0,
+        duration: 0.5,
+        stagger: 0.05,
+        ease: 'power2.in',
+      }, '-=0.1')
       .to([leftBracketRef.current, rightBracketRef.current], {
-        x: (i) => (i === 0 ? -60 : 60),
+        x: (i: number) => (i === 0 ? -60 : 60),
         opacity: 0,
         duration: 0.4,
         ease: 'power2.in',
@@ -173,7 +206,7 @@ export default function AppLoader({ isLoading }: AppLoaderProps) {
     }, containerRef);
 
     return () => ctx.revert();
-  }, [isLoading]);
+  }, [isLoading, effectiveShortName]);
 
   if (!isLoading) return null;
 
@@ -188,7 +221,7 @@ export default function AppLoader({ isLoading }: AppLoaderProps) {
       {/* Background Animated Ambient Glow Orbs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="loader-glow-orb absolute top-1/3 left-1/3 w-80 h-80 bg-amber-500/10 rounded-full blur-[100px]" />
-        <div className="loader-glow-orb absolute bottom-1/3 right-1/3 w-96 h-96 bg-gold-600/10 rounded-full blur-[120px]" />
+        <div className="loader-glow-orb absolute bottom-1/3 right-1/3 w-96 h-96 bg-amber-600/10 rounded-full blur-[120px]" />
         <div className="loader-glow-orb absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-white/5 rounded-full blur-[80px]" />
       </div>
 
@@ -254,33 +287,33 @@ export default function AppLoader({ isLoading }: AppLoaderProps) {
             <line x1="432" y1="260" x2="460" y2="260" stroke="#FFFFFF" strokeWidth="2" />
           </g>
 
-          {/* Top Arc Text */}
+          {/* Top Arc Text: Dynamic Shop Name */}
           <text
             ref={topTextRef}
             fontFamily="'Inter', sans-serif"
-            fontSize="23"
+            fontSize={arcFontSize}
             fontWeight="900"
             fill="#12141D"
-            letterSpacing="4"
+            letterSpacing="3"
             textAnchor="middle"
           >
             <textPath href="#loader-top-arc" startOffset="50%" textAnchor="middle">
-              ARSHAD MOBILE ZONE
+              {effectiveShopName.toUpperCase()}
             </textPath>
           </text>
 
-          {/* Bottom Arc Text */}
+          {/* Bottom Arc Text: Dynamic Subtitle or Location */}
           <text
             ref={bottomTextRef}
             fontFamily="'Inter', sans-serif"
-            fontSize="22"
+            fontSize="18"
             fontWeight="900"
             fill="#12141D"
-            letterSpacing="4"
+            letterSpacing="3"
             textAnchor="middle"
           >
             <textPath href="#loader-bottom-arc" startOffset="50%" textAnchor="middle">
-              BARA BAZAR KHYBER
+              {(effectiveSubTitle || 'MOBILE CENTER').toUpperCase()}
             </textPath>
           </text>
 
@@ -307,57 +340,39 @@ export default function AppLoader({ isLoading }: AppLoaderProps) {
             strokeDasharray="10 6"
           />
 
-          {/* Center Disassembled / Assembled AMZ Letters */}
+          {/* Center Dynamic Monogram Letters (e.g. UA, AMZ) */}
           <g>
-            <text
-              ref={letterARef}
-              x="195"
-              y="286"
-              fontFamily="'Inter', sans-serif"
-              fontSize="96"
-              fontWeight="900"
-              fill="#12141D"
-              textAnchor="middle"
-            >
-              A
-            </text>
-            <text
-              ref={letterMRef}
-              x="256"
-              y="286"
-              fontFamily="'Inter', sans-serif"
-              fontSize="96"
-              fontWeight="900"
-              fill="#12141D"
-              textAnchor="middle"
-            >
-              M
-            </text>
-            <text
-              ref={letterZRef}
-              x="317"
-              y="286"
-              fontFamily="'Inter', sans-serif"
-              fontSize="96"
-              fontWeight="900"
-              fill="#12141D"
-              textAnchor="middle"
-            >
-              Z
-            </text>
+            {letters.map((char, index) => {
+              const xPos = startX + index * spacing;
+              return (
+                <text
+                  key={`${char}-${index}`}
+                  className="loader-monogram-letter font-black select-none"
+                  x={xPos}
+                  y="288"
+                  fontFamily="'Inter', sans-serif"
+                  fontSize={fontSize}
+                  fontWeight="900"
+                  fill="#12141D"
+                  textAnchor="middle"
+                >
+                  {char}
+                </text>
+              );
+            })}
           </g>
         </svg>
       </div>
 
-      {/* Subtitle & Shop Identity */}
+      {/* Subtitle & Shop Identity: Dynamic Shop Name */}
       <div ref={subtitleRef} className="text-center z-10 px-4 mb-5">
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-1">
-          {SHOP_CONFIG.name}
+          {effectiveShopName}
         </h2>
         <div className="flex items-center justify-center gap-2">
           <span className="h-[1px] w-6 bg-gold/50" />
-          <p className="text-xs sm:text-sm font-semibold tracking-[0.25em] text-gold uppercase">
-            {SHOP_CONFIG.subTitle}
+          <p className="text-xs sm:text-sm font-semibold tracking-[0.2em] text-gold uppercase">
+            {effectiveSubTitle}
           </p>
           <span className="h-[1px] w-6 bg-gold/50" />
         </div>

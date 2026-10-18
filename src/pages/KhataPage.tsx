@@ -9,10 +9,11 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { isDocForShop } from '../utils/multiTenantService';
 import { getWhatsAppKhataUrl } from '../config/shopConfig';
 
 export default function KhataPage() {
-  const { user } = useAuth();
+  const { user, currentShopId, shopProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'receivable' | 'payable'>('receivable');
   const [customers, setCustomers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,7 +48,7 @@ export default function KhataPage() {
     if (user) {
       fetchCustomers();
     }
-  }, [user]);
+  }, [user, currentShopId]);
 
   const fetchCustomers = async () => {
     if (!user) return;
@@ -57,7 +58,10 @@ export default function KhataPage() {
       const snap = await getDocs(q);
       const cust: any[] = [];
       snap.forEach(docSnap => {
-        cust.push({ id: docSnap.id, ...docSnap.data() });
+        const data = docSnap.data();
+        if (isDocForShop(data, currentShopId)) {
+          cust.push({ id: docSnap.id, ...data });
+        }
       });
       // Sort client-side by createdAt descending
       cust.sort((a, b) => {
@@ -83,6 +87,7 @@ export default function KhataPage() {
     setIsAddingCustomer(true);
     try {
       await addDoc(collection(db, 'khata'), {
+        shopId: currentShopId,
         userId: user.uid,
         userEmail: (user.email || '').toLowerCase(),
         name: name.trim(),

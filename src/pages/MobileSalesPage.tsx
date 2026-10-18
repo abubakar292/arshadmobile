@@ -21,6 +21,7 @@ import { BillPreviewModal } from '../components/ui/BillPreviewModal';
 import { BluetoothPrinterModal } from '../components/ui/BluetoothPrinterModal';
 import { getWhatsAppSaleBillUrl } from '../config/shopConfig';
 import { useAuth } from '../contexts/AuthContext';
+import { isDocForShop } from '../utils/multiTenantService';
 
 const COMPANY_OPTIONS = [
   { value: '', label: 'All Brands / Companies' },
@@ -60,7 +61,7 @@ const DATE_PRESETS = [
 ];
 
 export default function MobileSalesPage() {
-  const { user, shopProfile } = useAuth();
+  const { user, shopProfile, currentShopId } = useAuth();
   const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -95,7 +96,9 @@ export default function MobileSalesPage() {
     if (!user) return;
     const q = collection(db, 'sales');
     const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const list = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => isDocForShop(s, currentShopId));
       list.sort((a: any, b: any) => {
         const da = a.createdAt?.toMillis ? a.createdAt.toMillis() : (parseDateSafe(a.createdAt || a.date)?.getTime() || 0);
         const db = b.createdAt?.toMillis ? b.createdAt.toMillis() : (parseDateSafe(b.createdAt || b.date)?.getTime() || 0);
@@ -105,7 +108,7 @@ export default function MobileSalesPage() {
       setLoading(false);
     });
     return unsub;
-  }, [user]);
+  }, [user, currentShopId]);
 
   // Calculate active filter count
   const activeFiltersCount = useMemo(() => {

@@ -26,6 +26,21 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Instant Early Branding Hydration -->
+  <script>
+    (function() {
+      try {
+        var cachedName = localStorage.getItem('cached_shop_name');
+        if (cachedName) {
+          document.title = cachedName;
+          var appleTitle = document.querySelector("meta[name='apple-mobile-web-app-title']");
+          if (appleTitle) appleTitle.content = cachedName;
+          var appName = document.querySelector("meta[name='application-name']");
+          if (appName) appName.content = cachedName;
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
   <body>
     <div id="root"></div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { isDocForShop } from '../utils/multiTenantService';
 import { Package, Download, Printer, Search, Smartphone, Layers, TrendingUp, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { SearchBar } from '../components/ui/SearchBar';
@@ -23,7 +24,7 @@ interface MobileStockItem {
 }
 
 export default function InventoryValuationPage() {
-  const { user, shopProfile } = useAuth();
+  const { user, shopProfile, currentShopId } = useAuth();
   const [activeTab, setActiveTab] = useState<'units' | 'value'>('units');
   const [stock, setStock] = useState<MobileStockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +37,7 @@ export default function InventoryValuationPage() {
     if (user) {
       fetchStock();
     }
-  }, [user]);
+  }, [user, currentShopId]);
 
   const fetchStock = async () => {
     if (!user) return;
@@ -47,8 +48,8 @@ export default function InventoryValuationPage() {
       snap.forEach(docSnap => {
         const data = docSnap.data();
         const qty = Number(data.quantity) || 0;
-        // Include any mobile with stock quantity > 0
-        if (qty > 0) {
+        // Include any mobile with stock quantity > 0 belonging to current shop
+        if (isDocForShop(data, currentShopId) && qty > 0) {
           const basePrice = Number(data.basePrice ?? data.purchasePrice ?? data.costPrice ?? 0);
           const modelName = data.modelName || data.model || data.itemName || 'Unnamed Mobile';
           const company = data.company || data.companyName || data.brand || 'Other';

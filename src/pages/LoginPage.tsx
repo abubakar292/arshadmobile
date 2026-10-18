@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { SHOP_CONFIG } from '../config/shopConfig';
+import { ShopBrandBadge } from '../utils/brandIdentity';
 
 const errorMessages: Record<string, string> = {
   'auth/invalid-credential': 'Invalid email or password.',
@@ -85,11 +86,18 @@ export default function LoginPage() {
         <div className="rounded-[2rem] bg-white border border-gray-100 shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-6 sm:p-8">
           {/* Logo & Header */}
           <div className="flex flex-col items-center mb-6 text-center">
-            <div className="w-20 h-20 rounded-2xl bg-white p-1 border-2 border-amber-500/30 shadow-[0_4px_20px_rgba(245,158,11,0.25)] mb-3 flex items-center justify-center">
-              <img src={SHOP_CONFIG.logoUrl} alt={SHOP_CONFIG.shortName} className="w-full h-full object-contain" />
-            </div>
-            <h2 className="text-2xl font-black text-gray-900 tracking-tight">{SHOP_CONFIG.name}</h2>
-            <p className="text-amber-600 font-bold text-xs uppercase tracking-widest mt-1">{SHOP_CONFIG.subTitle}</p>
+            <ShopBrandBadge 
+              name={localStorage.getItem('cached_shop_name') || 'Mobile Store'} 
+              shortName={localStorage.getItem('cached_shop_short_name') || 'MS'} 
+              size="lg" 
+              className="mb-3 shadow-md"
+            />
+            <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+              {localStorage.getItem('cached_shop_name') || 'Mobile Shop Portal'}
+            </h2>
+            <p className="text-amber-600 font-bold text-xs uppercase tracking-widest mt-1">
+              Shop Management Portal
+            </p>
           </div>
 
           {/* Clean Tabs: Sign In / Sign Up */}

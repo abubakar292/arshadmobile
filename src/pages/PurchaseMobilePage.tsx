@@ -9,6 +9,7 @@ import { SearchBar } from '../components/ui/SearchBar';
 import { Badge } from '../components/ui/Badge';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { isDocForShop } from '../utils/multiTenantService';
 import { Edit, Trash2, Smartphone, QrCode } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
@@ -36,7 +37,7 @@ const FILTER_COMPANIES = [
 ];
 
 export default function PurchaseMobilePage() {
-  const { user, shopProfile } = useAuth();
+  const { user, shopProfile, currentShopId } = useAuth();
   const [mobiles, setMobiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -80,7 +81,9 @@ export default function PurchaseMobilePage() {
     if (!user) return;
     const q = collection(db, 'mobiles');
     const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const list = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(m => isDocForShop(m, currentShopId));
       list.sort((a: any, b: any) => {
         const da = a.createdAt?.toMillis ? a.createdAt.toMillis() : (parseDateSafe(a.createdAt || a.purchaseDate)?.getTime() || 0);
         const db = b.createdAt?.toMillis ? b.createdAt.toMillis() : (parseDateSafe(b.createdAt || b.purchaseDate)?.getTime() || 0);
@@ -90,7 +93,7 @@ export default function PurchaseMobilePage() {
       setLoading(false);
     });
     return unsub;
-  }, [user]);
+  }, [user, currentShopId]);
 
   const filteredMobiles = mobiles.filter(m => {
     const comp = m.company || m.brand || '';
@@ -162,6 +165,7 @@ export default function PurchaseMobilePage() {
       setIsSubmitting(true);
 
       const data = {
+        shopId: currentShopId,
         userId: user?.uid,
         userEmail: (user?.email || '').toLowerCase(),
         modelName: formData.modelName.trim(),

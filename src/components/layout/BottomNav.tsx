@@ -4,10 +4,9 @@ import { LayoutDashboard, Smartphone, TrendingUp, BookOpen, Menu, ShoppingCart }
 
 interface BottomNavProps {
   onOpenMenu: () => void;
-  onOpenInstallGuide: () => void;
 }
 
-export function BottomNav({ onOpenMenu, onOpenInstallGuide }: BottomNavProps) {
+export function BottomNav({ onOpenMenu }: BottomNavProps) {
   const location = useLocation();
 
   const navItems = [

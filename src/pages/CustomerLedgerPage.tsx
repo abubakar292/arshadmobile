@@ -11,12 +11,13 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { isDocForShop } from '../utils/multiTenantService';
 import { getWhatsAppKhataUrl, getWhatsAppTransactionUrl } from '../config/shopConfig';
 
 export default function CustomerLedgerPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, currentShopId, shopProfile } = useAuth();
   const [customer, setCustomer] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +62,11 @@ export default function CustomerLedgerPage() {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const custData = snap.data();
+        if (!isDocForShop(custData, currentShopId)) {
+          error("Customer not found in this shop");
+          navigate('/khata');
+          return;
+        }
         setCustomer({ id: snap.id, ...custData });
       } else {
         error("Customer not found");
@@ -104,6 +110,7 @@ export default function CustomerLedgerPage() {
       const newBalance = txModalType === 'udhar' ? currentBalance + amt : currentBalance - amt;
 
       const newTx = {
+        shopId: currentShopId,
         userId: user.uid,
         userEmail: (user.email || '').toLowerCase(),
         khataId: id,

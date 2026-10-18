@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, query, orderBy, where, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { isDocForShop } from '../utils/multiTenantService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,7 +35,7 @@ const CATEGORIES = [
 ];
 
 export default function ExpensesPage() {
-  const { user } = useAuth();
+  const { user, currentShopId, shopProfile } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [salesProfit, setSalesProfit] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -61,7 +62,7 @@ export default function ExpensesPage() {
     if (user) {
       fetchData();
     }
-  }, [user]);
+  }, [user, currentShopId]);
 
   const fetchData = async () => {
     if (!user) return;
@@ -72,15 +73,17 @@ export default function ExpensesPage() {
       const exps: Expense[] = [];
       expSnap.forEach((d) => {
         const data = d.data();
-        exps.push({
-          id: d.id,
-          title: data.title,
-          amount: data.amount,
-          category: data.category,
-          date: parseDateSafe(data.date) || new Date(),
-          notes: data.notes || '',
-          createdAt: parseDateSafe(data.createdAt) || new Date(),
-        });
+        if (isDocForShop(data, currentShopId)) {
+          exps.push({
+            id: d.id,
+            title: data.title,
+            amount: data.amount,
+            category: data.category,
+            date: parseDateSafe(data.date) || new Date(),
+            notes: data.notes || '',
+            createdAt: parseDateSafe(data.createdAt) || new Date(),
+          });
+        }
       });
       // Sort in memory by date descending
       exps.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -91,7 +94,7 @@ export default function ExpensesPage() {
       let totalSalesProfit = 0;
       salesSnap.forEach((d) => {
         const s = d.data();
-        if (s.status !== 'returned') {
+        if (isDocForShop(s, currentShopId) && s.status !== 'returned') {
           totalSalesProfit += (s.profit || 0);
         }
       });
@@ -142,6 +145,7 @@ export default function ExpensesPage() {
         });
       } else {
         const newExpense = {
+          shopId: currentShopId,
           userId: user.uid,
           userEmail: (user.email || '').toLowerCase(),
           title: title.trim(),

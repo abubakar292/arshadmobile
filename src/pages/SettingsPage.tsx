@@ -3,93 +3,134 @@ import { useAuth } from '../contexts/AuthContext';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { 
-  Store, User, LogOut, Smartphone, Download, ShieldCheck, 
-  Database, CheckCircle2, RefreshCw, HardDrive, Cloud, Settings as SettingsIcon, X, Check,
-  Upload, RotateCcw, AlertTriangle, FileJson
+  Store, User, LogOut, Download, 
+  RefreshCw, HardDrive, Cloud, AlertTriangle,
+  ExternalLink, Sparkles, Receipt, CheckCircle2
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
-import { SHOP_CONFIG } from '../config/shopConfig';
-import { InstallPromptModal } from '../components/InstallPromptModal';
 import { Modal } from '../components/ui/Modal';
+import { ShopBrandBadge, getInitials } from '../utils/brandIdentity';
 import { 
-  createFullShopBackup, 
-  downloadBackupFile, 
-  getLastBackupTime, 
-  getLatestCloudBackup,
-  restoreShopBackup,
-  ShopBackupData,
-  RestoreResult
-} from '../utils/backupService';
+  syncShopBackupToGoogleDrive, 
+  downloadShopBackupLocally, 
+  BackupSyncResult 
+} from '../utils/googleDriveBackup';
+import { restoreShopBackup, ShopBackupData } from '../utils/backupService';
 import { format } from 'date-fns';
 
 export default function SettingsPage() {
-  const { user, logout, shopProfile, updateProfileData } = useAuth();
+  const { 
+    user, 
+    logout, 
+    shopProfile, 
+    updateProfileData, 
+    connectGoogleDrive, 
+    currentShopId 
+  } = useAuth();
   const { success, error, toast } = useToast();
-  const [showInstallModal, setShowInstallModal] = useState(false);
   
-  const [shopName, setShopName] = useState(shopProfile?.shopName || SHOP_CONFIG.name);
-  const [ownerName, setOwnerName] = useState(shopProfile?.ownerName || 'Admin');
-  const [phone, setPhone] = useState(shopProfile?.phone || SHOP_CONFIG.phone);
-  const [address, setAddress] = useState(shopProfile?.address || SHOP_CONFIG.address);
+  // Shop Branding & Identity State
+  const [shopName, setShopName] = useState(shopProfile.shopName || '');
+  const [shortName, setShortName] = useState(shopProfile.shortName || '');
+  const [ownerName, setOwnerName] = useState(shopProfile.ownerName || '');
+  const [phone, setPhone] = useState(shopProfile.phone || '');
+  const [secondaryPhone, setSecondaryPhone] = useState(shopProfile.secondaryPhone || '');
+  const [address, setAddress] = useState(shopProfile.address || '');
+  const [subTitle, setSubTitle] = useState(shopProfile.subTitle || '');
+  const [receiptNote, setReceiptNote] = useState(shopProfile.receiptNote || '');
+  const [whatsappFooter, setWhatsappFooter] = useState(shopProfile.whatsappFooter || '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Backup & Restore State
-  const [isBackingUp, setIsBackingUp] = useState(false);
-  const [lastBackup, setLastBackup] = useState<string | null>(null);
-  const [lastBackupSummary, setLastBackupSummary] = useState<ShopBackupData['summary'] | null>(null);
-  const [showDriveConfig, setShowDriveConfig] = useState(false);
-  const [driveWebhookInput, setDriveWebhookInput] = useState(() => localStorage.getItem('amz_drive_webhook_url') || '');
+  // Google Drive Sync State
+  const [isSyncingDrive, setIsSyncingDrive] = useState(false);
+  const [driveSyncResult, setDriveSyncResult] = useState<BackupSyncResult | null>(null);
+  const [isDownloadingLocal, setIsDownloadingLocal] = useState(false);
 
-  // Restore State
+  // Local Restore State
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [restoreCandidate, setRestoreCandidate] = useState<ShopBackupData | null>(null);
-  const [restoreSource, setRestoreSource] = useState<'file' | 'cloud'>('file');
   const [isRestoring, setIsRestoring] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const savedTime = getLastBackupTime();
-    setLastBackup(savedTime);
-  }, []);
-
-  useEffect(() => {
     if (shopProfile) {
-      setShopName(shopProfile.shopName || SHOP_CONFIG.name);
-      setOwnerName(shopProfile.ownerName || 'Admin');
-      setPhone(shopProfile.phone || SHOP_CONFIG.phone);
-      setAddress(shopProfile.address || SHOP_CONFIG.address);
+      setShopName(shopProfile.shopName || '');
+      setShortName(shopProfile.shortName || '');
+      setOwnerName(shopProfile.ownerName || '');
+      setPhone(shopProfile.phone || '');
+      setSecondaryPhone(shopProfile.secondaryPhone || '');
+      setAddress(shopProfile.address || '');
+      setSubTitle(shopProfile.subTitle || '');
+      setReceiptNote(shopProfile.receiptNote || '');
+      setWhatsappFooter(shopProfile.whatsappFooter || '');
     }
   }, [shopProfile]);
-  
-  const handleSaveShopInfo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await updateProfileData({
-        shopName: shopName.trim(),
-        ownerName: ownerName.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-      });
-      success('Shop profile saved successfully!');
-    } catch (err: any) {
-      error(err.message || 'Error saving shop profile');
+
+  // Auto-suggest monogram initials when shop name changes
+  const handleShopNameChange = (val: string) => {
+    setShopName(val);
+    if (!shortName || shortName === getInitials(shopName)) {
+      setShortName(getInitials(val));
     }
   };
 
-  const handleRunBackup = async (downloadFile = false) => {
-    setIsBackingUp(true);
+  const handleSaveShopProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
     try {
-      const backup = await createFullShopBackup(user?.uid);
-      if (downloadFile) {
-        downloadBackupFile(backup);
-      }
-      setLastBackup(backup.createdAt);
-      setLastBackupSummary(backup.summary);
-      success('Backup saved to cloud successfully!');
+      const initials = shortName.trim() || getInitials(shopName);
+      await updateProfileData({
+        shopName: shopName.trim(),
+        shortName: initials.toUpperCase(),
+        ownerName: ownerName.trim(),
+        phone: phone.trim(),
+        secondaryPhone: secondaryPhone.trim(),
+        address: address.trim(),
+        subTitle: subTitle.trim(),
+        receiptNote: receiptNote.trim(),
+        whatsappFooter: whatsappFooter.trim(),
+      });
+      success('Shop profile and brand icon updated successfully!');
     } catch (err: any) {
-      console.error('Backup error:', err);
-      error('Error creating backup. Please try again.');
+      console.error('Error saving profile:', err);
+      error(err.message || 'Error updating shop profile');
     } finally {
-      setIsBackingUp(false);
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleSyncToGoogleDrive = async () => {
+    setIsSyncingDrive(true);
+    try {
+      toast('Connecting to Google Drive...', 'info');
+      const token = await connectGoogleDrive();
+      toast('Uploading shop backup to Google Drive...', 'info');
+      
+      const res = await syncShopBackupToGoogleDrive(shopProfile, token);
+      setDriveSyncResult(res);
+      await updateProfileData({
+        lastBackupTime: res.modifiedTime,
+        googleDriveBackupFileId: res.fileId,
+      });
+      success(`Successfully synced "${res.fileName}" (${res.totalRecords} records) to Google Drive!`);
+    } catch (err: any) {
+      console.error('Google Drive sync error:', err);
+      error(err.message || 'Failed to sync with Google Drive.');
+    } finally {
+      setIsSyncingDrive(false);
+    }
+  };
+
+  const handleDownloadLocalBackup = async () => {
+    setIsDownloadingLocal(true);
+    try {
+      const total = await downloadShopBackupLocally(shopProfile);
+      success(`Downloaded offline backup (${total} records).`);
+    } catch (err: any) {
+      console.error('Local backup download error:', err);
+      error('Failed to export local backup file.');
+    } finally {
+      setIsDownloadingLocal(false);
     }
   };
 
@@ -100,470 +141,463 @@ export default function SettingsPage() {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const text = event.target?.result as string;
-        const parsed = JSON.parse(text) as ShopBackupData;
-        if (!parsed || (!parsed.data && !parsed.summary)) {
-          error('Invalid backup file. Missing data contents.');
-          return;
+        const rawJson = event.target?.result as string;
+        const parsed = JSON.parse(rawJson) as ShopBackupData;
+        if (!parsed.data) {
+          throw new Error('Invalid backup file structure: missing collections data.');
         }
         setRestoreCandidate(parsed);
-        setRestoreSource('file');
         setShowRestoreModal(true);
-      } catch (err) {
-        error('Invalid JSON file format. Please upload a valid AMZ backup.');
+      } catch (err: any) {
+        error(err.message || 'Invalid or corrupted backup JSON file.');
       }
     };
     reader.readAsText(file);
-    e.target.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleCheckCloudRestore = async () => {
-    setIsBackingUp(true);
-    try {
-      const cloudBackup = await getLatestCloudBackup(user?.uid);
-      if (!cloudBackup || (!cloudBackup.data && !cloudBackup.summary)) {
-        error('No previous cloud backup found for your shop account. Please restore using a backup JSON file.');
-        return;
-      }
-      setRestoreCandidate(cloudBackup);
-      setRestoreSource('cloud');
-      setShowRestoreModal(true);
-    } catch (err) {
-      error('Failed to load cloud backup.');
-    } finally {
-      setIsBackingUp(false);
-    }
-  };
-
-  const handleConfirmRestore = async () => {
+  const executeRestore = async () => {
     if (!restoreCandidate) return;
     setIsRestoring(true);
     try {
-      const result: RestoreResult = await restoreShopBackup(restoreCandidate, user?.uid);
-      success(result.message);
-      setShowRestoreModal(false);
-      setRestoreCandidate(null);
+      const res = await restoreShopBackup(restoreCandidate, 'clear_and_replace');
+      if (res.success) {
+        const total = Object.values(res.restoredCount).reduce((a, b) => a + b, 0);
+        success(`Restored ${total} records into ${shopProfile.shopName}!`);
+        setShowRestoreModal(false);
+        setRestoreCandidate(null);
+      } else {
+        error(res.message || 'Failed to restore backup records.');
+      }
     } catch (err: any) {
-      console.error('Restore error:', err);
-      error(err.message || 'Failed to restore shop data.');
+      error(err.message || 'Failed to restore backup.');
     } finally {
       setIsRestoring(false);
     }
   };
 
-  const handleSaveWebhook = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (driveWebhookInput.trim()) {
-      localStorage.setItem('amz_drive_webhook_url', driveWebhookInput.trim());
-      success('Google Drive Webhook URL saved successfully!');
-    } else {
-      localStorage.removeItem('amz_drive_webhook_url');
-      toast('Google Drive Webhook URL cleared.', 'info');
-    }
-    setShowDriveConfig(false);
-  };
+  const displayInitials = shortName.trim() || getInitials(shopName);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-16">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Manage shop profile, preferences, data backups, and phone app setup</p>
-        </div>
+    <div className="space-y-8 max-w-7xl mx-auto pb-12">
+      {/* Page Header */}
+      <div className="pb-4 border-b border-gray-200/80">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
+          <span>Shop Settings & Branding</span>
+        </h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Manage your store information, auto-generated brand monogram, print invoice policy, and Google Drive backups.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* LEFT / CENTER COLUMN */}
-        <div className="md:col-span-2 space-y-6">
-          
-          {/* ── 1. DAILY SHOP BACKUP & RESTORE ── */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+        {/* LEFT COLUMN: SHOP PROFILE & BRANDING + GOOGLE DRIVE */}
+        <div className="xl:col-span-7 space-y-8">
+
+          {/* ── 1. SHOP BRANDING & IDENTITY ── */}
           <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/60">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-forest/10 text-forest flex items-center justify-center shrink-0">
-                  <Database className="w-5 h-5" />
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Store className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="font-bold text-base text-gray-900 tracking-tight flex items-center gap-2">
-                    Data Backup & Restore
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                      Safe Cloud Backup
-                    </span>
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    One-tap backup and instant data recovery for stock, sales, bills, and khata
+                  <h2 className="font-bold text-gray-900 text-base">Store Identity & Details</h2>
+                  <p className="text-xs text-gray-500">Configure how your shop appears on invoices, screen headers, and icons</p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveShopProfile} className="p-6 sm:p-7 space-y-6">
+              {/* Dynamic Live Monogram Preview Banner */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-obsidian-dark to-obsidian-light text-white shadow-md flex flex-col sm:flex-row items-center justify-between gap-5 border border-white/10">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <ShopBrandBadge 
+                    name={shopName || 'Shop'} 
+                    shortName={displayInitials} 
+                    size="lg" 
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-extrabold text-lg sm:text-xl text-white tracking-tight truncate">
+                        {shopName || 'Your Shop Name'}
+                      </span>
+                      <span className="text-xs bg-amber-500/20 text-gold font-black px-2 py-0.5 rounded border border-amber-400/30 shrink-0">
+                        {displayInitials}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 truncate">
+                      {subTitle || address || 'Mobile Sales & Services'}
+                    </p>
+                    <p className="text-[11px] text-amber-400/90 font-medium mt-0.5">
+                      {phone ? `WhatsApp: ${phone}` : 'No phone set'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="sm:text-right text-[11px] text-slate-300 bg-white/5 p-3 rounded-xl border border-white/10 w-full sm:w-auto">
+                  <span className="inline-flex items-center gap-1.5 text-gold font-bold">
+                    <Sparkles className="w-3.5 h-3.5 text-gold" />
+                    Auto Brand Icon
+                  </span>
+                  <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+                    Created dynamically from name & used across bills, navbar, and mobile screen.
                   </p>
                 </div>
               </div>
 
-              {/* Discrete Developer Drive Config Toggle */}
-              <button
-                type="button"
-                onClick={() => setShowDriveConfig(!showDriveConfig)}
-                title="Developer Drive Configuration"
-                className="p-2 text-gray-300 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <SettingsIcon className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Developer Webhook Input Modal / Drawer (Only opened if clicked) */}
-            {showDriveConfig && (
-              <div className="p-4 bg-amber-50/70 border-b border-amber-200/80 text-xs space-y-2">
-                <div className="flex items-center justify-between font-bold text-amber-900">
-                  <span className="flex items-center gap-1.5">
-                    <Cloud className="w-4 h-4 text-amber-600" />
-                    Google Drive Auto-Sync Webhook (Developer Setup)
-                  </span>
-                  <button onClick={() => setShowDriveConfig(false)} className="text-amber-700 hover:text-amber-950">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="text-amber-800/80">
-                  Paste your Google Apps Script Web App URL below. When the client taps "Backup Now", this automatically updates <code>ArshadMobileBackup.json</code> in your 1TB Drive:
-                </p>
-                <form onSubmit={handleSaveWebhook} className="flex gap-2 pt-1">
-                  <input
-                    type="url"
-                    placeholder="https://script.google.com/macros/s/.../exec"
-                    value={driveWebhookInput}
-                    onChange={(e) => setDriveWebhookInput(e.target.value)}
-                    className="flex-1 px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-gray-900 text-xs outline-none focus:border-amber-600"
-                  />
-                  <button
-                    type="submit"
-                    className="px-3 py-1.5 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 text-xs shrink-0"
-                  >
-                    Save URL
-                  </button>
-                </form>
-              </div>
-            )}
-
-            <div className="p-5 sm:p-6 space-y-5">
-              {/* Backup Status Tile */}
-              <div className="p-4 rounded-xl bg-gray-50 border border-gray-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                    lastBackup ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {lastBackup ? <CheckCircle2 className="w-5 h-5" /> : <HardDrive className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs sm:text-sm font-bold text-gray-900">
-                        {lastBackup ? 'Status: All Data Saved' : 'No Backup Saved Today'}
-                      </p>
-                      <span className="text-[11px] font-medium text-emerald-700">
-                        {lastBackup ? '(Data Protected)' : '(Backup Needed)'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {lastBackup 
-                        ? `Last saved: ${format(new Date(lastBackup), 'dd MMM yyyy, hh:mm a')}`
-                        : 'Tap the button at closing time to save today\'s changes'}
-                    </p>
-                    {lastBackupSummary && (
-                      <div className="flex items-center gap-2 mt-2 text-[11px] text-gray-600 font-medium flex-wrap">
-                        <span className="bg-white px-2 py-0.5 rounded border border-gray-200">
-                          📱 {lastBackupSummary.mobilesCount} Mobiles
-                        </span>
-                        <span className="bg-white px-2 py-0.5 rounded border border-gray-200">
-                          🧾 {lastBackupSummary.salesCount} Sales
-                        </span>
-                        <span className="bg-white px-2 py-0.5 rounded border border-gray-200">
-                          📖 {lastBackupSummary.khataCustomersCount} Khata
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Big 1-Tap Action Button */}
-                <div className="w-full sm:w-auto shrink-0 flex flex-col gap-2">
-                  <button
-                    onClick={() => handleRunBackup(false)}
-                    disabled={isBackingUp}
-                    className="w-full sm:w-auto py-3 px-6 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isBackingUp ? (
-                      <>
-                        <RefreshCw className="w-5 h-5 animate-spin" />
-                        <span>Saving Backup...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Cloud className="w-5 h-5" />
-                        <span>Backup Now</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRunBackup(true)}
-                    disabled={isBackingUp}
-                    className="text-[11px] text-gray-500 hover:text-gray-800 flex items-center justify-center gap-1 py-1"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download file to device (.json)</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* ── RESTORE DATA SECTION ── */}
-              <div className="pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
-                      <RotateCcw className="w-4 h-4 text-amber-600" />
-                      Restore Lost Data
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      If data is accidentally lost or cleared, restore it instantly from your backup file or cloud snapshot
-                    </p>
-                  </div>
-                </div>
-
-                {/* Hidden File Input */}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelected}
-                  accept=".json,application/json"
-                  className="hidden"
-                />
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Option A: Restore from JSON File */}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isRestoring || isBackingUp}
-                    className="p-3.5 rounded-xl border border-dashed border-gray-300 hover:border-forest bg-gray-50/50 hover:bg-forest/5 flex items-center gap-3 transition-colors text-left group"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-forest group-hover:text-white transition-colors">
-                      <Upload className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-gray-900">Restore from JSON File</p>
-                      <p className="text-[11px] text-gray-500 truncate">Upload ArshadMobileBackup.json</p>
-                    </div>
-                  </button>
-
-                  {/* Option B: Restore from Cloud Snapshot */}
-                  <button
-                    type="button"
-                    onClick={handleCheckCloudRestore}
-                    disabled={isRestoring || isBackingUp}
-                    className="p-3.5 rounded-xl border border-dashed border-gray-300 hover:border-emerald-600 bg-gray-50/50 hover:bg-emerald-50/50 flex items-center gap-3 transition-colors text-left group"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                      <RotateCcw className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-gray-900">Restore Cloud Snapshot</p>
-                      <p className="text-[11px] text-gray-500 truncate">Restore last master backup</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── 2. MOBILE INSTALL APP CARD ── */}
-          <div className="bg-gradient-to-r from-obsidian-dark to-surface text-white p-5 rounded-2xl border border-amber-500/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-gold flex items-center justify-center shrink-0 border border-amber-500/30">
-                <Smartphone className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-extrabold text-white text-base flex items-center gap-2">
-                  Install AMZ on Phone
-                  <span className="text-[10px] bg-amber-500 text-obsidian-dark font-black px-1.5 py-0.5 rounded uppercase">
-                    PWA App
-                  </span>
-                </h3>
-                <p className="text-xs text-amber-200/80 mt-0.5">
-                  Install on Android or iPhone like a native app (no Play Store / App Store needed)
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowInstallModal(true)}
-              className="py-2.5 px-4 bg-amber-500 hover:bg-amber-400 text-obsidian-dark font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95 shrink-0 flex items-center gap-1.5"
-            >
-              <Download className="w-4 h-4" />
-              How to Install
-            </button>
-          </div>
-
-          {/* ── 3. SHOP INFORMATION ── */}
-          <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-              <Store className="w-5 h-5 text-forest" />
-              <h2 className="font-bold text-gray-900">Shop Information</h2>
-            </div>
-            <div className="p-6">
-              <form onSubmit={handleSaveShopInfo} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="Shop Name" required value={shopName} onChange={e => setShopName(e.target.value)} />
-                  <Input label="Owner Name" value={ownerName} onChange={e => setOwnerName(e.target.value)} />
-                </div>
-                <Input label="Phone Number" required value={phone} onChange={e => setPhone(e.target.value)} />
+              {/* Spacious Input Fields Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Address</label>
-                  <textarea
-                    value={address}
-                    onChange={e => setAddress(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-forest resize-none text-gray-900 text-sm"
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Shop Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={shopName}
+                    onChange={e => handleShopNameChange(e.target.value)}
+                    placeholder="e.g. Usman Afridi Mobile Center"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">Official title shown on invoices and headers.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Brand Monogram / Short Name
+                  </label>
+                  <input
+                    type="text"
+                    value={shortName}
+                    maxLength={4}
+                    onChange={e => setShortName(e.target.value.toUpperCase())}
+                    placeholder="e.g. UA"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white uppercase font-extrabold tracking-wider focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">2-3 initials for your app icon and receipt logo.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Shop Owner / Contact Person
+                  </label>
+                  <input
+                    type="text"
+                    value={ownerName}
+                    onChange={e => setOwnerName(e.target.value)}
+                    placeholder="e.g. Usman Afridi"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
                   />
                 </div>
-                <Button type="submit">Save Changes</Button>
-              </form>
-            </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Market Subtitle / Branch
+                  </label>
+                  <input
+                    type="text"
+                    value={subTitle}
+                    onChange={e => setSubTitle(e.target.value)}
+                    placeholder="e.g. Bara Bazar, Khyber"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Primary Phone / WhatsApp <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="0300-1234567"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Secondary Phone (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={secondaryPhone}
+                    onChange={e => setSecondaryPhone(e.target.value)}
+                    placeholder="0312-9876543"
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Physical Shop Address
+                </label>
+                <textarea
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all resize-y min-h-[72px]"
+                  placeholder="e.g. Shop #45, 1st Floor, Mobile Plaza, Bara Market, Khyber Agency"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Printed Receipt Warranty & Terms Note
+                </label>
+                <textarea
+                  value={receiptNote}
+                  onChange={e => setReceiptNote(e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all resize-y min-h-[72px]"
+                  placeholder="e.g. Please check phone and accessories thoroughly before leaving. 3 days checking warranty. No cash refund."
+                />
+              </div>
+
+              <div className="flex items-center justify-end pt-2">
+                <Button 
+                  type="submit" 
+                  disabled={isSavingProfile} 
+                  className="bg-amber-500 hover:bg-amber-600 text-obsidian-dark font-extrabold px-6 py-2.5 rounded-xl shadow-md transition-all active:scale-95"
+                >
+                  {isSavingProfile ? 'Saving Changes...' : 'Save Shop Information'}
+                </Button>
+              </div>
+            </form>
           </div>
-          
-          {/* ── 4. APP PREFERENCES ── */}
+
+          {/* ── 2. GOOGLE DRIVE BACKUP & CLOUD SYNC ── */}
           <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
-            <div className="p-4 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900">App Preferences</h2>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Cloud className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-gray-900 text-base">Google Drive Cloud Backup</h2>
+                  <p className="text-xs text-gray-500">Securely sync your shop's inventory, sales, and khata records to your Google Drive</p>
+                </div>
+              </div>
+              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Cloud Sync Ready
+              </span>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="Currency Symbol" value="Rs." readOnly />
-                <Input label="Low Stock Alert Threshold" type="number" value="3" readOnly />
+
+            <div className="p-6 sm:p-7 space-y-5">
+              <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-amber-950">Backup File:</span>
+                    <span className="text-xs font-mono font-bold bg-white text-amber-900 px-2.5 py-0.5 rounded border border-amber-300">
+                      {shopProfile.shopName.trim()} Backup.json
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-900/80">
+                    {shopProfile.lastBackupTime ? (
+                      <>Last synced: <span className="font-semibold text-amber-950">{format(new Date(shopProfile.lastBackupTime), 'PPpp')}</span></>
+                    ) : (
+                      'No backup uploaded yet. Click the button below to upload your store backup file.'
+                    )}
+                  </p>
+                </div>
+                
+                {driveSyncResult?.webViewLink && (
+                  <a
+                    href={driveSyncResult.webViewLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 underline bg-white px-3 py-1.5 rounded-lg border border-amber-200 shadow-2xs shrink-0"
+                  >
+                    <span>Open in Drive</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Button 
+                  onClick={handleSyncToGoogleDrive}
+                  disabled={isSyncingDrive}
+                  className="bg-amber-500 hover:bg-amber-600 text-obsidian-dark font-extrabold px-5 py-2.5 rounded-xl shadow-sm transition-all active:scale-95"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isSyncingDrive ? 'animate-spin' : ''}`} />
+                  {isSyncingDrive ? 'Syncing to Drive...' : 'Sync Backup to Google Drive'}
+                </Button>
+
+                <Button 
+                  variant="outline"
+                  onClick={handleDownloadLocalBackup}
+                  disabled={isDownloadingLocal}
+                  className="font-bold text-gray-700 px-4 py-2.5 rounded-xl border-gray-300 hover:bg-gray-50"
+                >
+                  <Download className="w-4 h-4 mr-2 text-gray-500" />
+                  {isDownloadingLocal ? 'Exporting...' : 'Download Offline JSON File'}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs font-bold text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl"
+                >
+                  <HardDrive className="w-4 h-4 mr-1.5 text-gray-500" />
+                  Restore from JSON File
+                </Button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  accept=".json" 
+                  className="hidden" 
+                  onChange={handleFileSelected} 
+                />
               </div>
             </div>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: ACCOUNT & SYSTEM INFO */}
-        <div className="space-y-6">
+        {/* RIGHT COLUMN: RECEIPT PREVIEW & USER ACCOUNT */}
+        <div className="xl:col-span-5 space-y-8">
+          {/* Live Receipt Slip Mockup */}
           <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-              <User className="w-5 h-5 text-forest" />
-              <h2 className="font-bold text-gray-900">Account</h2>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/60">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-amber-600" />
+                <h3 className="font-bold text-gray-900 text-sm">Printed Bill Receipt Preview</h3>
+              </div>
+              <span className="text-[11px] font-semibold text-gray-400 bg-white px-2 py-0.5 rounded border border-gray-200">
+                80mm Thermal Slip
+              </span>
             </div>
-            <div className="p-6 space-y-4">
-              <Input label="Email" value={user?.email || ''} readOnly className="bg-gray-50 text-gray-500" />
-              <Input label="Display Name" value={user?.displayName || 'Admin'} readOnly className="bg-gray-50 text-gray-500" />
-              
+
+            <div className="p-6 bg-slate-50/70">
+              <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm text-center space-y-2 font-mono text-xs max-w-sm mx-auto">
+                <div className="flex justify-center mb-1">
+                  <ShopBrandBadge 
+                    name={shopName} 
+                    shortName={displayInitials} 
+                    size="sm" 
+                  />
+                </div>
+                <h4 className="font-black text-gray-900 text-base tracking-tight leading-tight">
+                  {shopName || 'Shop Name'}
+                </h4>
+                <p className="text-[11px] text-gray-600 font-medium">
+                  {subTitle || 'Bara Bazar, Khyber'}
+                </p>
+                <p className="text-[11px] text-gray-600">
+                  Tel: {phone || '0300-0000000'} {secondaryPhone ? `| ${secondaryPhone}` : ''}
+                </p>
+                {address && (
+                  <p className="text-[10px] text-gray-500 leading-snug">
+                    {address}
+                  </p>
+                )}
+                
+                <div className="border-t border-dashed border-gray-300 my-3" />
+                
+                <div className="flex justify-between text-[11px] text-gray-500 font-sans">
+                  <span>INVOICE #{shopProfile.shortName}-2026-0042</span>
+                  <span>{format(new Date(), 'dd/MM/yyyy')}</span>
+                </div>
+                
+                <div className="border-t border-dashed border-gray-300 my-2" />
+                
+                <div className="space-y-1 text-left text-[11px]">
+                  <div className="flex justify-between font-bold text-gray-800">
+                    <span>Samsung Galaxy S23 Ultra</span>
+                    <span>Rs. 185,000</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-gray-500">
+                    <span>IMEI: 358942109841235</span>
+                    <span>1 Unit</span>
+                  </div>
+                </div>
+
+                <div className="border-t border-dashed border-gray-300 my-2" />
+
+                <div className="flex justify-between text-xs font-black text-gray-900 pt-0.5">
+                  <span>TOTAL AMOUNT:</span>
+                  <span>Rs. 185,000</span>
+                </div>
+
+                <div className="border-t border-dashed border-gray-300 my-3" />
+                
+                <p className="text-[10px] text-gray-600 italic leading-relaxed text-center px-1">
+                  "{receiptNote || 'Thank you for your business! 3 days checking warranty.'}"
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* User Account Card */}
+          <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50/60">
+              <User className="w-4 h-4 text-amber-600" />
+              <h2 className="font-bold text-gray-900 text-sm">Account Profile</h2>
+            </div>
+            
+            <div className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Account Email</label>
+                <p className="font-bold text-gray-900 text-sm mt-0.5 truncate">{user?.email || 'N/A'}</p>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Active Store</label>
+                <p className="font-bold text-gray-900 text-sm mt-0.5 truncate">{shopProfile.shopName}</p>
+              </div>
+
               <div className="pt-4 border-t border-gray-100">
-                <Button onClick={logout} variant="danger" className="w-full">
+                <Button onClick={logout} variant="danger" className="w-full text-xs font-bold py-2.5">
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign Out
                 </Button>
               </div>
             </div>
           </div>
-
-          <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-card text-center space-y-1">
-            <p className="font-bold text-gray-800 text-sm">{SHOP_CONFIG.name}</p>
-            <p className="text-xs text-gold font-bold tracking-wider uppercase">{SHOP_CONFIG.subTitle}</p>
-            <p className="text-[11px] text-gray-400 mt-2">Version 2.0.0 (AMZ Enterprise)</p>
-            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-center gap-2 text-xs text-emerald-600 font-semibold">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Firebase Cloud Sync Active</span>
-            </div>
-          </div>
         </div>
-
       </div>
-
-      <InstallPromptModal
-        isOpen={showInstallModal}
-        onClose={() => setShowInstallModal(false)}
-      />
 
       {/* RESTORE CONFIRMATION MODAL */}
       <Modal
         isOpen={showRestoreModal}
         onClose={() => !isRestoring && setShowRestoreModal(false)}
-        title="Restore Shop Data"
+        title="Restore Shop Data Backup"
         size="md"
       >
         {restoreCandidate && (
-          <div className="p-5 space-y-4">
-            <div className="flex items-start gap-3 p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs">
+          <div className="p-6 space-y-5">
+            <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold">Data Recovery Confirmation</p>
-                <p className="mt-0.5 text-amber-800 leading-relaxed">
-                  {restoreSource === 'cloud' 
-                    ? 'This will restore all shop records from the latest cloud backup snapshot into your database.' 
-                    : 'This will restore all shop records from your selected backup JSON file into your database.'}
+                <p className="font-bold text-sm text-amber-950">Confirm Database Import</p>
+                <p className="mt-1 text-amber-900 leading-relaxed">
+                  This will import documents from the selected backup file into your store account ({shopProfile.shopName}).
                 </p>
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200/80 space-y-2.5 text-xs">
-              <div className="flex justify-between items-center text-gray-600">
-                <span className="font-medium">Backup Timestamp:</span>
-                <span className="font-bold text-gray-900 bg-white px-2 py-0.5 rounded border border-gray-200">
-                  {restoreCandidate.createdAt ? format(new Date(restoreCandidate.createdAt), 'dd MMM yyyy, hh:mm a') : 'Unknown Date'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-gray-600">
-                <span className="font-medium">Shop Identifier:</span>
-                <span className="font-bold text-gray-900">{restoreCandidate.shopName || SHOP_CONFIG.name}</span>
-              </div>
-
-              <div className="pt-2 border-t border-gray-200 grid grid-cols-2 gap-2 text-gray-700">
-                <div className="bg-white p-2.5 rounded-lg border border-gray-200">
-                  <span className="text-gray-500 block text-[10px] uppercase font-bold">Mobiles Stock</span>
-                  <span className="text-sm font-extrabold text-gray-900">
-                    📱 {restoreCandidate.summary?.mobilesCount ?? restoreCandidate.data?.mobiles?.length ?? 0}
-                  </span>
-                </div>
-                <div className="bg-white p-2.5 rounded-lg border border-gray-200">
-                  <span className="text-gray-500 block text-[10px] uppercase font-bold">Sales & Bills</span>
-                  <span className="text-sm font-extrabold text-gray-900">
-                    🧾 {restoreCandidate.summary?.salesCount ?? (restoreCandidate.data?.sales?.length || restoreCandidate.data?.mobileSales?.length) ?? 0}
-                  </span>
-                </div>
-                <div className="bg-white p-2.5 rounded-lg border border-gray-200">
-                  <span className="text-gray-500 block text-[10px] uppercase font-bold">Khata Accounts</span>
-                  <span className="text-sm font-extrabold text-gray-900">
-                    📖 {restoreCandidate.summary?.khataCustomersCount ?? restoreCandidate.data?.khata?.length ?? 0}
-                  </span>
-                </div>
-                <div className="bg-white p-2.5 rounded-lg border border-gray-200">
-                  <span className="text-gray-500 block text-[10px] uppercase font-bold">Expenses</span>
-                  <span className="text-sm font-extrabold text-gray-900">
-                    💸 {restoreCandidate.summary?.expensesCount ?? restoreCandidate.data?.expenses?.length ?? 0}
-                  </span>
-                </div>
-              </div>
+            <div className="p-4 bg-gray-50 rounded-xl space-y-1.5 text-xs">
+              <p className="text-gray-600">Backup Store Name: <span className="font-bold text-gray-900">{restoreCandidate.meta?.shopName || 'Unknown'}</span></p>
+              <p className="text-gray-600">Backup Date: <span className="font-bold text-gray-900">{restoreCandidate.meta?.exportedAt ? format(new Date(restoreCandidate.meta.exportedAt), 'PPpp') : 'N/A'}</span></p>
+              <p className="text-gray-600">Total Records: <span className="font-bold text-gray-900">{restoreCandidate.meta?.totalRecords || 'N/A'}</span></p>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex-1"
-                onClick={() => setShowRestoreModal(false)}
-                disabled={isRestoring}
-              >
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="ghost" onClick={() => setShowRestoreModal(false)} disabled={isRestoring}>
                 Cancel
               </Button>
-              <Button
-                type="button"
-                variant="primary"
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white"
-                onClick={handleConfirmRestore}
-                disabled={isRestoring}
-              >
-                {isRestoring ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin mr-1.5" />
-                    Restoring Data...
-                  </>
-                ) : (
-                  'Confirm & Restore Now'
-                )}
+              <Button onClick={executeRestore} disabled={isRestoring} className="bg-amber-500 hover:bg-amber-600 text-obsidian-dark font-extrabold">
+                {isRestoring ? 'Restoring...' : 'Confirm Restore'}
               </Button>
             </div>
           </div>

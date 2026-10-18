@@ -1,6 +1,7 @@
 import { collection, getDocs, doc, setDoc, getDoc, writeBatch, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { SHOP_CONFIG } from '../config/shopConfig';
+import { isDocForShop } from './multiTenantService';
 
 export interface ShopBackupData {
   version: string;
@@ -61,7 +62,7 @@ export function setDriveWebhookUrl(url: string): void {
  * Exports all shop data from Firestore into a structured JSON backup object
  * strictly scoped to the authenticated user.
  */
-export async function createFullShopBackup(userId?: string): Promise<ShopBackupData> {
+export async function createFullShopBackup(userId?: string, shopId?: string): Promise<ShopBackupData> {
   const getColDocs = (colName: string) => {
     return getDocs(collection(db, colName));
   };
@@ -75,12 +76,17 @@ export async function createFullShopBackup(userId?: string): Promise<ShopBackupD
     getColDocs('expenses'),
   ]);
 
-  const mobiles = mobilesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const sales = salesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const bills = billsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const khata = khataSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const khataTransactions = txSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const expenses = expensesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const filterDocs = (snap: any) => {
+    const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+    return shopId ? all.filter((d: any) => isDocForShop(d, shopId)) : all;
+  };
+
+  const mobiles = filterDocs(mobilesSnap);
+  const sales = filterDocs(salesSnap);
+  const bills = filterDocs(billsSnap);
+  const khata = filterDocs(khataSnap);
+  const khataTransactions = filterDocs(txSnap);
+  const expenses = filterDocs(expensesSnap);
 
   const backup: ShopBackupData = {
     version: '2.0.0',

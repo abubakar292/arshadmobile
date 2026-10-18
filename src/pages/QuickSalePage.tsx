@@ -8,17 +8,20 @@ import { BarcodeScanner } from '../components/BarcodeScanner';
 import { PrintPromptModal } from '../components/ui/PrintPromptModal';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { isDocForShop } from '../utils/multiTenantService';
 import { QrCode, Zap } from 'lucide-react';
 import { generateBillNumber } from '../utils/printBill';
 
 export default function QuickSalePage() {
-  const { user, shopProfile } = useAuth();
+  const { user, shopProfile, currentShopId } = useAuth();
   useEffect(() => {
     if (!user) return;
     const fetchKhataCustomers = async () => {
       try {
         const snap = await getDocs(collection(db, 'khata'));
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const list = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(c => isDocForShop(c, currentShopId));
         list.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         setKhataCustomers(list);
       } catch (err) {
@@ -26,7 +29,7 @@ export default function QuickSalePage() {
       }
     };
     fetchKhataCustomers();
-  }, [user]);
+  }, [user, currentShopId]);
   const [formData, setFormData] = useState({
     customerName: '',
     customerPhone: '',
@@ -83,13 +86,17 @@ export default function QuickSalePage() {
       let billNumber = '';
       try {
         const billsSnap = await getDocs(collection(db, 'bills'));
-        billNumber = generateBillNumber(billsSnap.size + 1);
+        const shopBillsCount = billsSnap.docs.filter(b => isDocForShop(b.data(), currentShopId)).length;
+        const prefix = shopProfile?.shortName || 'MZ';
+        billNumber = `${prefix}-${new Date().getFullYear()}-${String(shopBillsCount + 1).padStart(4, '0')}`;
       } catch (e) {
         billNumber = generateBillNumber();
       }
 
       const billRef = doc(collection(db, 'bills'));
       const billData = {
+        shopId: currentShopId,
+        shopName: shopProfile?.shopName || 'Mobile Shop',
         userId: user?.uid,
         userEmail: (user?.email || '').toLowerCase(),
         billNumber,
@@ -123,6 +130,7 @@ export default function QuickSalePage() {
       // Create a sale record in sales collection
       const saleRef = doc(collection(db, 'sales'));
       batch.set(saleRef, {
+        shopId: currentShopId,
         userId: user?.uid,
         userEmail: (user?.email || '').toLowerCase(),
         itemType: 'quick_sale',
@@ -155,6 +163,7 @@ export default function QuickSalePage() {
           
           const txnRef = doc(collection(db, 'khataTransactions'));
           batch.set(txnRef, {
+            shopId: currentShopId,
             userId: user?.uid,
             userEmail: (user?.email || '').toLowerCase(),
             khataId: selectedKhataId,

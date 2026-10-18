@@ -1,12 +1,11 @@
 {
-  "projectId": "resonant-cedar-7vd6f",
-  "appId": "1:774732197585:web:0a4aa0f0d820c3f7ff9ff0",
-  "apiKey": "AIzaSyBLYReV8K21X_-hCtAskHSELYOB-dxcdDs",
-  "authDomain": "resonant-cedar-7vd6f.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-7f61cf88-55bb-46a0-8d3d-15f4f60babed",
-  "storageBucket": "resonant-cedar-7vd6f.firebasestorage.app",
-  "messagingSenderId": "774732197585",
+  "projectId": "gen-lang-client-0993592848",
+  "appId": "1:481295937076:web:a15b1004ce9490883f2461",
+  "apiKey": "AIzaSyCe0WjiZHUR3dBoS42JrGyHaRUlodQM6o4",
+  "authDomain": "gen-lang-client-0993592848.firebaseapp.com",
+  "storageBucket": "gen-lang-client-0993592848.firebasestorage.app",
+  "messagingSenderId": "481295937076",
   "measurementId": "",
-  "oAuthClientId": "774732197585-8cjq67knrol86hhibvh1hnlsc5dep13l.apps.googleusercontent.com",
+  "oAuthClientId": "481295937076-qo4ab71ckpifln3c2ifjmivbrj1vngiv.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

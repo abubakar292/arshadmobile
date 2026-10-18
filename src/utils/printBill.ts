@@ -2,55 +2,58 @@ import { format } from 'date-fns';
 import { formatDateSafe } from './dateUtils';
 import { printInNewWindow } from './printUtils';
 import { SHOP_CONFIG } from '../config/shopConfig';
+import { getBrandGradient } from './brandIdentity';
 
-export function generateBillNumber(sequence?: number): string {
+export function generateBillNumber(sequence?: number, prefix = 'MZ'): string {
   const year = new Date().getFullYear();
   if (sequence !== undefined && sequence > 0) {
-    return `AMZ-${year}-${String(sequence).padStart(4, '0')}`;
+    return `${prefix}-${year}-${String(sequence).padStart(4, '0')}`;
   }
   const randomPart = Math.floor(1000 + Math.random() * 9000);
-  return `AMZ-${year}-${randomPart}`;
+  return `${prefix}-${year}-${randomPart}`;
 }
 
 export function getBillHtml(billData: any, shopInfo?: any): string {
   const isMultiple = billData.items && billData.items.length > 0;
   
-  const currentShopName = shopInfo?.shopName || SHOP_CONFIG.name;
-  const currentShortName = shopInfo?.shortName || SHOP_CONFIG.shortName;
+  const currentShopName = shopInfo?.shopName || billData?.shopName || SHOP_CONFIG.name;
+  const currentShortName = shopInfo?.shortName || 'MZ';
   const currentSubTitle = shopInfo?.subTitle || SHOP_CONFIG.subTitle;
   const currentAddress = shopInfo?.address || SHOP_CONFIG.address;
   const currentPhone = shopInfo?.phone || SHOP_CONFIG.phone;
+  const currentReceiptNote = shopInfo?.receiptNote || 'Warranty claim requires original bill slip. Thank you for your business!';
+  const logoUrl = shopInfo?.logoUrl;
+  const palette = getBrandGradient(currentShopName || currentShortName);
 
   const itemsHtml = isMultiple 
     ? billData.items.map((item: any, i: number) => `
       <tr>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${i + 1}</td>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${i + 1}</td>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
           <strong>${item.company || ''} ${item.modelName || item.itemName || ''}</strong><br/>
-          <span style="font-size: 12px; color: #64748b;">${item.ramRom || ''}</span>
+          <span style="font-size: 11px; color: #64748b;">${item.ramRom || ''}</span>
         </td>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #e2e8f0; font-family: monospace;">
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-size: 12px;">
           ${item.imei1 || (item.imei2 ? '' : '-')}
-          ${item.imei2 ? `<br/><span style="font-size: 12px; color: #64748b;">IMEI2: ${item.imei2}</span>` : ''}
+          ${item.imei2 ? `<br/><span style="font-size: 11px; color: #64748b;">IMEI2: ${item.imei2}</span>` : ''}
         </td>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">Rs. ${(item.sellPrice || 0).toLocaleString()}</td>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">Rs. ${(item.sellPrice || 0).toLocaleString()}</td>
       </tr>
     `).join('')
     : `
       <tr>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">1</td>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">1</td>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0;">
           <strong>${billData.company || ''} ${billData.itemName || billData.modelName || ''}</strong>
         </td>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #e2e8f0; font-family: monospace;">
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-size: 12px;">
           ${billData.imei1 || (billData.imei2 ? '' : '-')}
-          ${billData.imei2 ? `<br/><span style="font-size: 12px; color: #64748b;">IMEI2: ${billData.imei2}</span>` : ''}
+          ${billData.imei2 ? `<br/><span style="font-size: 11px; color: #64748b;">IMEI2: ${billData.imei2}</span>` : ''}
         </td>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">Rs. ${(billData.sellPrice || billData.totalSellPrice || 0).toLocaleString()}</td>
+        <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700;">Rs. ${(billData.sellPrice || billData.totalSellPrice || 0).toLocaleString()}</td>
       </tr>
     `;
 
-  // Robustly determine the total sale price
   let calculatedTotal = 0;
   if (billData.totalSellPrice !== undefined && billData.totalSellPrice !== null && Number(billData.totalSellPrice) > 0) {
     calculatedTotal = Number(billData.totalSellPrice);
@@ -64,26 +67,31 @@ export function getBillHtml(billData: any, shopInfo?: any): string {
 
   const totalHtml = `Rs. ${calculatedTotal.toLocaleString()}`;
 
+  const logoMarkup = logoUrl 
+    ? `<img src="${logoUrl}" alt="${currentShortName}" class="header-logo" />`
+    : `<div class="header-monogram" style="background: linear-gradient(135deg, ${palette.from}, ${palette.to});">${currentShortName}</div>`;
+
   return `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Bill #${billData.billNumber || billData.id}</title>
+      <title>Bill #${billData.billNumber || billData.id} - ${currentShopName}</title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; margin: 0; padding: 12px; color: #0f0a1e; background: #fff; }
-        .bill-container { max-width: 800px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #fff; }
-        .header { background: #12141D; color: white; padding: 20px; text-align: center; border-bottom: 3px solid #F59E0B; }
-        .header-inner { display: flex; align-items: center; justify-content: center; gap: 14px; }
-        .header-logo { width: 48px; height: 48px; border-radius: 50%; background: white; padding: 2px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        .title-band { background: #F59E0B; color: #12141D; text-align: center; padding: 8px; font-weight: 800; letter-spacing: 2px; font-size: 12px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Plus Jakarta Sans", sans-serif; margin: 0; padding: 12px; color: #0f172a; background: #fff; }
+        .bill-container { max-width: 800px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: #fff; }
+        .header { background: #0f172a; color: white; padding: 22px 20px; text-align: center; border-bottom: 4px solid ${palette.from}; }
+        .header-inner { display: flex; align-items: center; justify-content: center; gap: 16px; }
+        .header-logo { width: 50px; height: 50px; border-radius: 12px; object-contain; }
+        .header-monogram { width: 50px; height: 50px; border-radius: 12px; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 20px; letter-spacing: 1px; border: 2px solid rgba(255,255,255,0.3); }
+        .title-band { background: #f8fafc; color: #0f172a; text-align: center; padding: 8px; font-weight: 800; letter-spacing: 2px; font-size: 11px; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; }
         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; border-bottom: 2px solid #e2e8f0; font-size: 13px; }
         .info-col p { margin: 4px 0; }
         .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-        .items-table th { background: #F1F5F9; padding: 10px 8px; text-align: left; border-bottom: 2px solid #CBD5E1; color: #0F172A; font-weight: 700; }
-        .total-row { display: flex; justify-content: space-between; padding: 16px; font-size: 18px; font-weight: bold; background: #FFFBEB; border-bottom: 1px solid #FDE68A; color: #B45309; }
-        .footer { text-align: center; padding: 16px; color: #64748b; font-size: 12px; }
+        .items-table th { background: #f1f5f9; padding: 10px 8px; text-align: left; border-bottom: 2px solid #cbd5e1; color: #0f172a; font-weight: 700; font-size: 11px; text-transform: uppercase; }
+        .total-row { display: flex; justify-content: space-between; padding: 16px; font-size: 18px; font-weight: 900; background: #f8fafc; border-top: 2px solid #0f172a; border-bottom: 1px solid #e2e8f0; color: #0f172a; }
+        .footer { text-align: center; padding: 16px; color: #64748b; font-size: 11px; line-height: 1.6; }
         @media print {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
           .bill-container { border: none; }
@@ -94,36 +102,35 @@ export function getBillHtml(billData: any, shopInfo?: any): string {
       <div class="bill-container">
         <div class="header">
           <div class="header-inner">
-            <img src="/logo.svg" alt="${currentShortName}" class="header-logo" />
-            <div>
-              <h1 style="margin:0; font-size: 22px; font-weight: 800; letter-spacing: 1px;">${currentShopName.toUpperCase()}</h1>
-              <p style="margin:4px 0 0 0; color: #F59E0B; font-weight: 700; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;">${currentSubTitle.toUpperCase()} • ${currentShortName}</p>
+            ${logoMarkup}
+            <div style="text-align: left;">
+              <h1 style="margin:0; font-size: 22px; font-weight: 900; letter-spacing: 0.5px;">${currentShopName}</h1>
+              <p style="margin:4px 0 0 0; color: #94a3b8; font-weight: 600; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;">${currentSubTitle} • Tel: ${currentPhone}</p>
             </div>
           </div>
         </div>
-        <div class="title-band">SALE RECEIPT #${billData.billNumber || (billData.id ? billData.id.substring(0,8).toUpperCase() : '')}</div>
+        <div class="title-band">SALES INVOICE #${billData.billNumber || (billData.id ? billData.id.substring(0,8).toUpperCase() : '')}</div>
         
         <div class="info-grid">
           <div class="info-col">
-            <p><strong>Customer:</strong> ${billData.customerName || 'Walk-in'}</p>
+            <p><strong>Customer:</strong> ${billData.customerName || 'Walk-in Customer'}</p>
             <p><strong>Phone:</strong> ${billData.customerPhone || 'N/A'}</p>
-            <p><strong>Method:</strong> ${billData.paymentMethod || 'Cash'}</p>
+            <p><strong>Payment Method:</strong> ${billData.paymentMethod || 'Cash'}</p>
           </div>
           <div class="info-col" style="text-align: right;">
             <p><strong>Date:</strong> ${formatDateSafe(billData.date || new Date(), 'dd/MM/yyyy')}</p>
             <p><strong>Time:</strong> ${formatDateSafe(billData.date || new Date(), 'hh:mm a')}</p>
-            <p><strong>Bill #:</strong> ${billData.billNumber || (billData.id ? billData.id.substring(0,8).toUpperCase() : '')}</p>
+            <p><strong>Invoice #:</strong> ${billData.billNumber || (billData.id ? billData.id.substring(0,8).toUpperCase() : '')}</p>
           </div>
         </div>
         <div style="padding: 16px;">
-          <h3 style="margin-top: 0; color: #12141D; font-size: 14px;">ITEMS PURCHASED</h3>
           <table class="items-table">
             <thead>
               <tr>
                 <th style="text-align: center; width: 40px;">#</th>
-                <th>Item</th>
-                <th>IMEI</th>
-                <th style="text-align: right;">Price</th>
+                <th>Item Description</th>
+                <th>IMEI Number</th>
+                <th style="text-align: right;">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -132,12 +139,12 @@ export function getBillHtml(billData: any, shopInfo?: any): string {
           </table>
         </div>
         <div class="total-row">
-          <span>TOTAL AMOUNT:</span>
+          <span>NET PAYABLE:</span>
           <span>${totalHtml}</span>
         </div>
         <div class="footer">
-          Thank you for your business! Visit Again 😊<br>
-          <strong>${currentShopName}</strong> • ${currentAddress} • Tel: ${currentPhone}
+          <strong>${currentReceiptNote}</strong><br/>
+          <span>${currentShopName} • ${currentAddress} • Contact: ${currentPhone}</span>
         </div>
       </div>
     </body>

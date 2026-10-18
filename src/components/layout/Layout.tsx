@@ -3,13 +3,11 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { BottomNav } from './BottomNav';
-import { InstallPromptModal } from '../InstallPromptModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
-  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -67,7 +65,6 @@ export default function Layout() {
         <Navbar
           onMenuClick={() => setSidebarOpen(true)}
           showMenuButton={!isDesktop}
-          onInstallClick={() => setIsInstallModalOpen(true)}
         />
 
         {/* Page content */}
@@ -91,13 +88,6 @@ export default function Layout() {
         {/* ── MOBILE BOTTOM NAVIGATION BAR ── */}
         <BottomNav 
           onOpenMenu={() => setSidebarOpen(true)} 
-          onOpenInstallGuide={() => setIsInstallModalOpen(true)}
-        />
-
-        {/* ── INSTALL PWA GUIDE MODAL ── */}
-        <InstallPromptModal
-          isOpen={isInstallModalOpen}
-          onClose={() => setIsInstallModalOpen(false)}
         />
       </div>
     </div>

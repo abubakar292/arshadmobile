@@ -13,6 +13,7 @@ import { format, subDays, startOfDay, isSameDay } from 'date-fns';
 import { parseDateSafe } from '../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { isDocForShop } from '../utils/multiTenantService';
 
 function AnimatedCounter({ value, prefix = '', suffix = '' }: { value: number, prefix?: string, suffix?: string }) {
   const [count, setCount] = useState(0);
@@ -41,7 +42,7 @@ function AnimatedCounter({ value, prefix = '', suffix = '' }: { value: number, p
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { user, shopProfile } = useAuth();
+  const { user, shopProfile, currentShopId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     netProfit: 0,
@@ -150,7 +151,9 @@ export default function DashboardPage() {
     };
 
     const unsubStock = onSnapshot(stockQuery, (snapshot) => {
-      currentMobiles = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      currentMobiles = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(m => isDocForShop(m, currentShopId));
       mobilesLoaded = true;
       recalculateDashboard();
     }, (err) => {
@@ -160,7 +163,9 @@ export default function DashboardPage() {
     });
 
     const unsubSales = onSnapshot(salesQuery, (snapshot) => {
-      currentSales = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      currentSales = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => isDocForShop(s, currentShopId));
       salesLoaded = true;
       recalculateDashboard();
     }, (err) => {
@@ -173,7 +178,7 @@ export default function DashboardPage() {
       unsubStock();
       unsubSales();
     };
-  }, [user]);
+  }, [user, currentShopId]);
 
   const formatTimeAgo = (date: Date) => {
     const diff = Math.floor((new Date().getTime() - date.getTime()) / 60000);
