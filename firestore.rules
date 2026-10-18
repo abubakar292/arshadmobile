@@ -1,72 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Default deny for unauthenticated or unknown collections
     match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // User profiles
-    match /users/{userId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Shop profile and configuration
-    match /shops/{shopId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Mobiles Inventory - All authenticated shop users can view and manage
-    match /mobiles/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Sales Records - All authenticated shop users can view and manage
-    match /sales/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Bills & Invoices - All authenticated shop users can view and manage
-    match /bills/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Khata Customers - All authenticated shop users can view and manage
-    match /khata/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Khata Ledger Transactions - All authenticated shop users can view and manage
-    match /khataTransactions/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Expenses - All authenticated shop users can view and manage
-    match /expenses/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Backups - All authenticated shop users can view and manage
-    match /backups/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Daily Metrics
-    match /dailyMetrics/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Auxiliary collections
-    match /admin_credentials/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /shop_registrations/{docId} {
       allow read, write: if isAuthenticated();
     }
   }
