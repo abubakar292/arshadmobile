@@ -5,7 +5,8 @@ import { Button } from '../components/ui/Button';
 import { 
   Store, User, LogOut, Download, 
   RefreshCw, HardDrive, Cloud, AlertTriangle,
-  ExternalLink, Sparkles, Receipt, CheckCircle2
+  ExternalLink, Sparkles, Receipt, CheckCircle2,
+  ShieldCheck, Info
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { Modal } from '../components/ui/Modal';
@@ -115,7 +116,10 @@ export default function SettingsPage() {
       success(`Successfully synced "${res.fileName}" (${res.totalRecords} records) to Google Drive!`);
     } catch (err: any) {
       console.error('Google Drive sync error:', err);
-      error(err.message || 'Failed to sync with Google Drive.');
+      const msg = err.message?.includes('popup') || err.message?.includes('unauthorized')
+        ? 'Google authorization window was closed or blocked. Please allow popups and try again.'
+        : (err.message || 'Failed to sync with Google Drive.');
+      error(msg);
     } finally {
       setIsSyncingDrive(false);
     }
@@ -459,6 +463,21 @@ export default function SettingsPage() {
                   className="hidden" 
                   onChange={handleFileSelected} 
                 />
+              </div>
+
+              {/* Developer Testing Mode Guidance */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-slate-900">
+                  <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Google Account Notice (Testing Mode)</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  While in testing mode, when the Google login window opens, select your developer account (<strong className="text-slate-900">threadsandtailsshop@gmail.com</strong>).
+                  If Google shows <em>"Google hasn't verified this app"</em>, click <strong className="text-slate-900">Advanced</strong> → <strong className="text-slate-900">Go to app (unsafe)</strong> to proceed.
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  To sync with other emails (such as <code>northlooms@gmail.com</code>), add them as <strong>Test Users</strong> in Google Cloud Console &gt; OAuth consent screen. Alternatively, you can always use <strong>Download Offline JSON File</strong> above for an instant, unrestricted backup!
+                </p>
               </div>
             </div>
           </div>

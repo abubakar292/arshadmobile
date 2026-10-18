@@ -20,6 +20,7 @@ import {
   ARSHAD_SHOP_ID,
 } from '../utils/multiTenantService';
 import { updateAppBranding } from '../utils/brandIdentity';
+import { getGoogleDriveAccessToken } from '../utils/googleAuthHelper';
 
 interface AuthContextType {
   user: User | null;
@@ -164,16 +165,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (cachedDriveToken) {
       return cachedDriveToken;
     }
-    const provider = new GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/drive.file');
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
+    const token = await getGoogleDriveAccessToken(user?.email || undefined);
+    if (!token) {
       throw new Error('Failed to obtain Google Drive authorization.');
     }
-    cachedDriveToken = credential.accessToken;
-    setGoogleAccessToken(credential.accessToken);
-    return credential.accessToken;
+    cachedDriveToken = token;
+    setGoogleAccessToken(token);
+    return token;
   };
 
   const logout = async () => {
