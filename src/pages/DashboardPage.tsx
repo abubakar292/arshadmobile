@@ -10,7 +10,7 @@ import {
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { format, subDays, startOfDay, isSameDay } from 'date-fns';
-import { parseDateSafe } from '../utils/dateUtils';
+import { parseDateSafe, getDocDateString } from '../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { isDocForShop } from '../utils/multiTenantService';
@@ -68,6 +68,7 @@ export default function DashboardPage() {
 
     const recalculateDashboard = () => {
       const today = new Date();
+      const todayStr = format(today, 'yyyy-MM-dd');
       const startOfToday = startOfDay(today);
       const sevenDaysAgo = startOfDay(subDays(today, 6));
 
@@ -99,7 +100,8 @@ export default function DashboardPage() {
       const activities: any[] = [];
 
       currentSales.forEach(s => {
-        const saleDate = parseDateSafe(s.date || s.createdAt) || new Date();
+        const docDateStr = getDocDateString(s);
+        const saleDate = parseDateSafe(s.saleDate || s.date || s.createdAt) || new Date();
         const isReturned = s.status === 'returned';
 
         // Include in activities list (shows returned tag if returned)
@@ -116,8 +118,9 @@ export default function DashboardPage() {
 
         // IMPORTANT: Exclude returned sales from revenue and profit!
         if (!isReturned) {
-          // If sold today
-          if (saleDate >= startOfToday) {
+          // If sold today (immune to early morning UTC day boundary shifts)
+          const isSoldToday = s.saleDate ? s.saleDate === todayStr : (docDateStr === todayStr || saleDate >= startOfToday);
+          if (isSoldToday) {
             todaySales += Number(s.sellPrice) || 0;
             todayProfit += Number(s.profit) || 0;
           }

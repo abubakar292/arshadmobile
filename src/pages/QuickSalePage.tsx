@@ -9,6 +9,7 @@ import { PrintPromptModal } from '../components/ui/PrintPromptModal';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { isDocForShop } from '../utils/multiTenantService';
+import { format } from 'date-fns';
 import { QrCode, Zap } from 'lucide-react';
 import { generateBillNumber } from '../utils/printBill';
 
@@ -39,7 +40,8 @@ export default function QuickSalePage() {
     sellPrice: '',
     imei1: '',
     imei2: '',
-    paymentMethod: 'Cash'
+    paymentMethod: 'Cash',
+    saleDate: format(new Date(), 'yyyy-MM-dd')
   });
 
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -94,6 +96,12 @@ export default function QuickSalePage() {
       }
 
       const billRef = doc(collection(db, 'bills'));
+      // Ensure exact local calendar date and time (immune to server UTC midnight regression)
+      const chosenSaleDate = formData.saleDate || format(new Date(), 'yyyy-MM-dd');
+      const [sYear, sMonth, sDay] = chosenSaleDate.split('-').map(Number);
+      const now = new Date();
+      const localSaleDateTime = new Date(sYear, sMonth - 1, sDay, now.getHours(), now.getMinutes(), now.getSeconds());
+
       const billData = {
         shopId: currentShopId,
         shopName: shopProfile?.shopName || 'Mobile Shop',
@@ -119,7 +127,8 @@ export default function QuickSalePage() {
         totalSellPrice: sellPrice,
         totalSellAmount: sellPrice,
         sellPrice: sellPrice,
-        date: new Date(),
+        saleDate: chosenSaleDate,
+        date: localSaleDateTime,
         createdAt: serverTimestamp(),
         isQuickSale: true
       };
@@ -147,7 +156,8 @@ export default function QuickSalePage() {
         khataCustomerId: formData.paymentMethod === 'Udhar' ? selectedKhataId : null,
         khataCustomerName: formData.paymentMethod === 'Udhar' ? khataCustomers.find(c => c.id === selectedKhataId)?.name : null,
         billId: billRef.id,
-        date: serverTimestamp(),
+        saleDate: chosenSaleDate,
+        date: localSaleDateTime,
         createdAt: serverTimestamp(),
         isQuickSale: true
       });
@@ -172,7 +182,8 @@ export default function QuickSalePage() {
             amount: sellPrice,
             description: `Quick sale - ${formData.itemName}`,
             runningBalance: newBalance,
-            date: new Date(),
+            saleDate: chosenSaleDate,
+            date: localSaleDateTime,
             createdAt: serverTimestamp(),
             linkedSaleId: billRef.id
           });
@@ -223,6 +234,10 @@ export default function QuickSalePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input required label="Customer Name *" value={formData.customerName} onChange={e => setFormData({...formData, customerName: e.target.value})} />
             <Input label="Customer Phone" value={formData.customerPhone} onChange={e => setFormData({...formData, customerPhone: e.target.value})} />
+          </div>
+
+          <div>
+            <Input required type="date" label="Sale Date *" value={formData.saleDate} onChange={e => setFormData({...formData, saleDate: e.target.value})} />
           </div>
 
           <hr className="border-slate-100" />

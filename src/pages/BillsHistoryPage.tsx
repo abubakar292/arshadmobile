@@ -7,8 +7,8 @@ import { Select } from '../components/ui/Select';
 import { BillPreviewModal } from '../components/ui/BillPreviewModal';
 import { BluetoothPrinterModal } from '../components/ui/BluetoothPrinterModal';
 import { FileText, MessageCircle, Eye, Bluetooth } from 'lucide-react';
-import { format, isToday, isThisWeek, isThisMonth, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
-import { parseDateSafe, formatDateSafe } from '../utils/dateUtils';
+import { format, subDays, isToday, isYesterday, isThisWeek, isThisMonth, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
+import { parseDateSafe, formatDateSafe, getDocDateString } from '../utils/dateUtils';
 import { getBillHtml } from '../utils/printBill';
 import { getWhatsAppSaleBillUrl } from '../config/shopConfig';
 import { useAuth } from '../contexts/AuthContext';
@@ -73,21 +73,23 @@ export default function BillsHistoryPage() {
     // Payment Filter
     const matchesPayment = paymentFilter === 'All' || b.paymentMethod === paymentFilter;
 
-    // Date filter
+    // Date filter (immune to UTC midnight timezone shift)
     let matchesDate = true;
-    let billDate = parseDateSafe(b.date || b.createdAt) || new Date();
+    const docDateStr = getDocDateString(b);
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+    let billDate = parseDateSafe(b.saleDate || b.date || b.createdAt) || new Date();
     
     if (dateFilter === 'Today') {
-      matchesDate = isToday(billDate);
+      matchesDate = b.saleDate ? b.saleDate === todayStr : docDateStr === todayStr;
+    } else if (dateFilter === 'Yesterday') {
+      matchesDate = b.saleDate ? b.saleDate === yesterdayStr : docDateStr === yesterdayStr;
     } else if (dateFilter === 'This Week') {
       matchesDate = isThisWeek(billDate);
     } else if (dateFilter === 'This Month') {
       matchesDate = isThisMonth(billDate);
     } else if (dateFilter === 'Custom Range') {
-      matchesDate = isWithinInterval(billDate, {
-        start: startOfDay(new Date(customStart)),
-        end: endOfDay(new Date(customEnd))
-      });
+      matchesDate = docDateStr >= customStart && docDateStr <= customEnd;
     }
 
     return matchesSearch && matchesPayment && matchesDate;

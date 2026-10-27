@@ -12,7 +12,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { isDocForShop } from '../utils/multiTenantService';
 import { parseDateSafe } from '../utils/dateUtils';
-import { Zap, Smartphone, QrCode, X, Plus } from 'lucide-react';
+import { format } from 'date-fns';
+import { Zap, Smartphone, QrCode, X, Plus, Calendar } from 'lucide-react';
 
 export default function MobilesStockPage() {
   const { user, shopProfile, currentShopId } = useAuth();
@@ -35,6 +36,7 @@ export default function MobilesStockPage() {
   const isMultiSellingRef = useRef(false);
   const [multiCustomerName, setMultiCustomerName] = useState('');
   const [multiCustomerPhone, setMultiCustomerPhone] = useState('');
+  const [multiSaleDate, setMultiSaleDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [multiPaymentMethod, setMultiPaymentMethod] = useState('Cash');
   const [multiItems, setMultiItems] = useState<any[]>([]);
   
@@ -101,6 +103,7 @@ export default function MobilesStockPage() {
       ...mobile,
       customerName: '',
       customerPhone: '',
+      saleDate: format(new Date(), 'yyyy-MM-dd'),
       sellPrice: mobile.basePrice.toString(),
       imei1: mobile.imei1 || '',
       imei2: mobile.imei2 || '',
@@ -123,6 +126,12 @@ export default function MobilesStockPage() {
       const sellPrice = Number(singleSellModal.sellPrice);
       const basePrice = singleSellModal.basePrice;
       const profit = sellPrice - basePrice;
+
+      // Ensure exact local calendar date and time (immune to server UTC midnight regression)
+      const chosenSaleDate = singleSellModal.saleDate || format(new Date(), 'yyyy-MM-dd');
+      const [sYear, sMonth, sDay] = chosenSaleDate.split('-').map(Number);
+      const now = new Date();
+      const localSaleDateTime = new Date(sYear, sMonth - 1, sDay, now.getHours(), now.getMinutes(), now.getSeconds());
 
       const batch = writeBatch(db);
       
@@ -150,7 +159,8 @@ export default function MobilesStockPage() {
         paymentMethod: singleSellModal.paymentMethod,
         khataCustomerId: singleSellModal.paymentMethod === 'Udhar' ? singleSelectedKhataId : null,
         khataCustomerName: singleSellModal.paymentMethod === 'Udhar' ? khataCustomers.find(c => c.id === singleSelectedKhataId)?.name : null,
-        date: serverTimestamp(),
+        saleDate: chosenSaleDate,
+        date: localSaleDateTime,
         createdAt: serverTimestamp()
       };
       batch.set(saleRef, saleData);
@@ -185,7 +195,8 @@ export default function MobilesStockPage() {
         paymentMethod: singleSellModal.paymentMethod,
         khataCustomerId: singleSellModal.paymentMethod === 'Udhar' ? singleSelectedKhataId : null,
         khataCustomerName: singleSellModal.paymentMethod === 'Udhar' ? khataCustomers.find(c => c.id === singleSelectedKhataId)?.name : null,
-        date: serverTimestamp(),
+        saleDate: chosenSaleDate,
+        date: localSaleDateTime,
         createdAt: serverTimestamp()
       };
       batch.set(billRef, billData);
@@ -212,7 +223,8 @@ export default function MobilesStockPage() {
             amount: sellPrice,
             description: `Mobile sale - ${singleSellModal.modelName}`,
             runningBalance: newBalance,
-            date: new Date(),
+            saleDate: chosenSaleDate,
+            date: localSaleDateTime,
             createdAt: serverTimestamp(),
             linkedSaleId: billRef.id
           });
@@ -336,6 +348,12 @@ export default function MobilesStockPage() {
         };
       });
 
+      // Ensure exact local calendar date and time (immune to server UTC midnight regression)
+      const chosenSaleDate = multiSaleDate || format(new Date(), 'yyyy-MM-dd');
+      const [sYear, sMonth, sDay] = chosenSaleDate.split('-').map(Number);
+      const now = new Date();
+      const localSaleDateTime = new Date(sYear, sMonth - 1, sDay, now.getHours(), now.getMinutes(), now.getSeconds());
+
       const billData = {
         shopId: currentShopId,
         shopName: shopProfile?.shopName || 'Mobile Shop',
@@ -351,7 +369,8 @@ export default function MobilesStockPage() {
         paymentMethod: multiPaymentMethod,
         khataCustomerId: multiPaymentMethod === 'Udhar' ? multiSelectedKhataId : null,
         khataCustomerName: multiPaymentMethod === 'Udhar' ? khataCustomers.find(c => c.id === multiSelectedKhataId)?.name : null,
-        date: serverTimestamp(),
+        saleDate: chosenSaleDate,
+        date: localSaleDateTime,
         createdAt: serverTimestamp()
       };
       
@@ -379,7 +398,8 @@ export default function MobilesStockPage() {
           khataCustomerId: multiPaymentMethod === 'Udhar' ? multiSelectedKhataId : null,
           khataCustomerName: multiPaymentMethod === 'Udhar' ? khataCustomers.find(c => c.id === multiSelectedKhataId)?.name : null,
           billId: billRef.id,
-          date: serverTimestamp(),
+          saleDate: chosenSaleDate,
+          date: localSaleDateTime,
           createdAt: serverTimestamp()
         });
       });
@@ -405,7 +425,8 @@ export default function MobilesStockPage() {
             amount: totalSellPrice,
             description: `Multiple Sale - ${validItems.length} mobiles`,
             runningBalance: newBalance,
-            date: new Date(),
+            saleDate: chosenSaleDate,
+            date: localSaleDateTime,
             createdAt: serverTimestamp(),
             linkedSaleId: billRef.id
           });
@@ -654,6 +675,12 @@ export default function MobilesStockPage() {
             <label className="text-xs font-medium text-slate-500">Customer Phone</label>
             <input type="text" className="w-full rounded-xl border border-primary-500/20 px-4 py-2 text-slate-900 outline-none focus:border-primary-500 focus:ring-2"
               value={multiCustomerPhone} onChange={e => setMultiCustomerPhone(e.target.value)} />
+          </div>
+
+          <div className="space-y-1 sm:col-span-2">
+            <label className="text-xs font-medium text-slate-500">Sale Date *</label>
+            <input required type="date" className="w-full rounded-xl border border-primary-500/20 px-4 py-2 text-slate-900 outline-none focus:border-primary-500 focus:ring-2"
+              value={multiSaleDate} onChange={e => setMultiSaleDate(e.target.value)} />
           </div>
         </div>
         
